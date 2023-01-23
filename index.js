@@ -8,7 +8,9 @@ const {
   Collector,
 } = require("discord.js");
 const checker = require("./modules/checker.js");
+const setupChecker = require("./modules/setupChecker.js");
 const Profile = require("./model/profile.js");
+const Setup = require("./model/setup.js");
 
 require("dotenv").config();
 
@@ -18,10 +20,10 @@ mongoose.set("strictQuery", false);
 
 mongoose.connect(process.env.MONGO_URL, (err) => {
   if (err) console.log(err);
-  else console.log("mongdb is connected");
+  else console.log("\x1b[1m\x1b[32mMongoDB\x1b[0m is connected");
 });
 
-// Creat Discord Bot
+// Create Discord Bot
 
 const client = new Client({
   shards: "auto",
@@ -34,23 +36,27 @@ const client = new Client({
 });
 
 client.on("ready", () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+  console.log(`Logged in as \x1b[1m\x1b[31m${client.user.tag}\x1b[0m!`);
 });
 
 client.login(process.env.CLIENT_TOKEN);
 
+// init command bot
 client.on("messageCreate", async (message) => {
   // check new url
   if (
     message.content.startsWith("https://steamcommunity.com/") &&
     message.channel.id === "1066832242543972352"
   ) {
+    // confirmation message by bot
     message.channel.send("PTS Bot surveille : " + message.content);
+    // Put new user in DB
     const newUrl = await Profile.create({
       url: message.content,
       ban: await checker(message.content),
       user: message.author.username,
     });
+    // delete user message
     message.delete(message.id);
   }
 
@@ -74,5 +80,51 @@ client.on("messageCreate", async (message) => {
       "Votre message n'est pas un URL ou une commande valide"
     );
     message.delete(message.id);
+  }
+});
+
+// setup bot
+client.on("messageCreate", async (message) => {
+  if (message.content.startsWith("!setup input")) {
+    const guildId = { idserver: message.guildId };
+    const channelId = { input: message.channelId };
+
+    message.channel.send(
+      "PTS Bot : ce channel est le nouveau channel d'entrée"
+    );
+
+    Setup.exists({ idserver: message.guildId }).then(async (exists) => {
+      if (exists) {
+        let update = await Setup.findOneAndUpdate(guildId, channelId, {
+          new: true,
+        });
+      } else {
+        const newInput = await Setup.create({
+          idserver: message.guildId,
+          input: message.channelId,
+        });
+      }
+    });
+  }
+  if (message.content.startsWith("!setup output")) {
+    const guildId = { idserver: message.guildId };
+    const channelId = { output: message.channelId };
+
+    message.channel.send(
+      "PTS Bot : ce channel est le nouveau channel de sortie"
+    );
+
+    Setup.exists({ idserver: message.guildId }).then(async (exists) => {
+      if (exists) {
+        let update = await Setup.findOneAndUpdate(guildId, channelId, {
+          new: true,
+        });
+      } else {
+        const newOutput = await Setup.create({
+          idserver: message.guildId,
+          output: message.channelId,
+        });
+      }
+    });
   }
 });

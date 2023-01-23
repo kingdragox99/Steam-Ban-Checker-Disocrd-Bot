@@ -16,9 +16,6 @@
     "dotenv": "^16.0.3",
     "mongoose": "^6.8.4",
     "node-cron": "^3.0.2",
-    "puppeteer": "^19.5.2",
-    "request": "^2.88.2",
-    "request-promise": "^4.2.6",
     "steamidconverter": "^1.0.4"
   }
 }
