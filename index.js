@@ -93,7 +93,7 @@ client.on("messageCreate", async (message) => {
   // check new url
   if (
     message.content.startsWith("https://steamcommunity.com/") &&
-    message.channelId == checkerInput.input
+    message.channelId == checkerInput?.input
   ) {
     // confirmation message by bot
     message.channel.send("PTS Bot surveille : " + message.content);
@@ -127,7 +127,7 @@ client.on("messageCreate", async (message) => {
     message.content.indexOf(
       "PTS Bot : ce channel est le nouveau channel d'entrée"
     ) == -1 &&
-    message.channelId == checkerInput.input
+    message.channelId == checkerInput?.input
   ) {
     message.delete(message.id);
   }
