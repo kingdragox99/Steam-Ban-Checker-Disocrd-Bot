@@ -1,6 +1,5 @@
 // Import
 const mongoose = require("mongoose");
-const SteamIDConverter = require("steamidconverter");
 const {
   Client,
   Collection,
@@ -8,7 +7,8 @@ const {
   Collector,
 } = require("discord.js");
 const checker = require("./modules/checker.js");
-const setupChecker = require("./modules/setupChecker.js");
+const setupCheckerInput = require("./modules/setupCheckerInput.js");
+const setupCheckerOutput = require("./modules/setupCheckerInput.js");
 const Profile = require("./model/profile.js");
 const Setup = require("./model/setup.js");
 
@@ -40,48 +40,6 @@ client.on("ready", () => {
 });
 
 client.login(process.env.CLIENT_TOKEN);
-
-// init command bot
-client.on("messageCreate", async (message) => {
-  // check new url
-  if (
-    message.content.startsWith("https://steamcommunity.com/") &&
-    message.channel.id === "1066832242543972352"
-  ) {
-    // confirmation message by bot
-    message.channel.send("PTS Bot surveille : " + message.content);
-    // Put new user in DB
-    const newUrl = await Profile.create({
-      url: message.content,
-      ban: await checker(message.content),
-      user: message.author.username,
-    });
-    // delete user message
-    message.delete(message.id);
-  }
-
-  // test bot is online or not
-  if (message.content.startsWith("!ping")) {
-    console.log(message);
-    message.channel.send("pong " + message.channelId);
-  }
-
-  // deleted not valide url
-  if (
-    message.content.indexOf("https://steamcommunity.com/") == -1 &&
-    message.content.indexOf(
-      "Votre message n'est pas un URL ou une commande valide"
-    ) == -1 &&
-    message.content.indexOf("PTS Bot surveille :") == -1 &&
-    message.content.indexOf("pong") == -1 &&
-    message.channel.id === "1066832242543972352"
-  ) {
-    message.channel.send(
-      "Votre message n'est pas un URL ou une commande valide"
-    );
-    message.delete(message.id);
-  }
-});
 
 // setup bot
 client.on("messageCreate", async (message) => {
@@ -126,5 +84,51 @@ client.on("messageCreate", async (message) => {
         });
       }
     });
+  }
+});
+
+// init command bot
+client.on("messageCreate", async (message) => {
+  const checkerInput = await setupCheckerInput(message.channelId);
+  // check new url
+  if (
+    message.content.startsWith("https://steamcommunity.com/") &&
+    message.channelId == checkerInput.input
+  ) {
+    // confirmation message by bot
+    message.channel.send("PTS Bot surveille : " + message.content);
+    // Put new user in DB
+    const newUrl = await Profile.create({
+      url: message.content,
+      ban: await checker(message.content),
+      user: message.author.username,
+    });
+    // delete user message
+    message.delete(message.id);
+  }
+
+  // test bot is online or not
+  if (message.content.startsWith("!ping")) {
+    console.log(message);
+    message.channel.send("pong " + message.channelId);
+  }
+
+  // deleted not valide url
+  if (
+    message.content.indexOf("https://steamcommunity.com/") == -1 &&
+    message.content.indexOf(
+      "Votre message n'est pas un URL ou une commande valide"
+    ) == -1 &&
+    message.content.indexOf("PTS Bot surveille :") == -1 &&
+    message.content.indexOf("pong") == -1 &&
+    message.content.indexOf(
+      "PTS Bot : ce channel est le nouveau channel d'entrée"
+    ) == -1 &&
+    message.content.indexOf(
+      "PTS Bot : ce channel est le nouveau channel d'entrée"
+    ) == -1 &&
+    message.channelId == checkerInput.input
+  ) {
+    message.delete(message.id);
   }
 });
