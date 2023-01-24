@@ -15,7 +15,6 @@
     "cron": "^2.2.0",
     "discord.js": "^14.7.1",
     "dotenv": "^16.0.3",
-    "mongoose": "^6.8.4",
-    "steamidconverter": "^1.0.4"
+    "mongoose": "^6.8.4"
   }
 }
