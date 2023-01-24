@@ -7,7 +7,7 @@ const checkForBan = async () => {
   const ban = await Profile.find({ ban: false }).exec(); // Get all users with ban = false
   const channels = await Setup.find({ output: { $gt: 1 } }).exec(); // Get all output
 
-  console.log(`\x1b[41m\x1b[1mPTS BOT:\x1b[0m Check for new ban\x1b[0m`);
+  console.log(`\x1b[41m\x1b[1mBOT:\x1b[0m Check for new ban\x1b[0m`);
 
   // For each user with "ban = false" does this:
   ban.forEach(async (data) => {
@@ -19,7 +19,7 @@ const checkForBan = async () => {
         const banStatusChange = { ban: true };
 
         console.log(
-          `\x1b[41m\x1b[1mPTS BOT:\x1b[0m A slut was detected \x1b[45m\x1b[1m\x1b[31m${data.url}\x1b[0m`
+          `\x1b[41m\x1b[1mBOT:\x1b[0m A slut was detected \x1b[45m\x1b[1m\x1b[31m${data.url}\x1b[0m`
         );
         // Send message in all channels
         client.channels.cache.get(channels[i].output).send({

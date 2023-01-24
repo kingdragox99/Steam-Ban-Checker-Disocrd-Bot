@@ -7,6 +7,10 @@ const scapName = require("./modules/scapName.js");
 const Profile = require("./model/profile.js");
 const Setup = require("./model/setup.js");
 
+console.log(
+  "\x1b[41m\x1b[1mBOT:\x1b[0m This \x1b[31mBOT\x1b[0m was made with Love by \x1b[41mDragolelele\x1b[0m"
+);
+
 dbConnect(); // connect to DB
 scheduleStart(); // Start daily task
 
@@ -36,7 +40,7 @@ client.on("messageCreate", async (message) => {
     message.channel.send("pong " + message.channelId);
   }
 
-  // Deleted invalid url or invalid input
+  // Deleted invalid url or invalid command
   if (
     message.content.indexOf("https://steamcommunity.com/") == -1 &&
     message.content.indexOf(
