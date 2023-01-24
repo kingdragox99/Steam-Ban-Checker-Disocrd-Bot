@@ -1,119 +1,42 @@
-// Import
-const mongoose = require("mongoose");
-const {
-  Client,
-  Collection,
-  GatewayIntentBits,
-  Collector,
-} = require("discord.js");
-const checker = require("./modules/checker.js");
+const dbConnect = require("./modules/dbConnect.js");
+const client = require("./modules/initBot.js");
 const setupCheckerInput = require("./modules/setupCheckerInput.js");
-const setupCheckerOutput = require("./modules/setupCheckerInput.js");
+const scheduleStart = require("./modules/schedule.js");
+const scapBan = require("./modules/scapBan.js");
+const scapName = require("./modules/scapName.js");
 const Profile = require("./model/profile.js");
 const Setup = require("./model/setup.js");
 
-require("dotenv").config();
+dbConnect(); // connect to DB
+scheduleStart(); // Start daily task
 
-// DB connect
-
-mongoose.set("strictQuery", false);
-
-mongoose.connect(process.env.MONGO_URL, (err) => {
-  if (err) console.log(err);
-  else console.log("\x1b[1m\x1b[32mMongoDB\x1b[0m is connected");
-});
-
-// Create Discord Bot
-
-const client = new Client({
-  shards: "auto",
-  partials: ["MESSAGE", "CHANNEL", "REACTION"],
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
-
-client.on("ready", () => {
-  console.log(`Logged in as \x1b[1m\x1b[31m${client.user.tag}\x1b[0m!`);
-});
-
-client.login(process.env.CLIENT_TOKEN);
-
-// setup bot
-client.on("messageCreate", async (message) => {
-  if (message.content.startsWith("!setup input")) {
-    const guildId = { idserver: message.guildId };
-    const channelId = { input: message.channelId };
-
-    message.channel.send(
-      "PTS Bot : ce channel est le nouveau channel d'entrée"
-    );
-
-    Setup.exists({ idserver: message.guildId }).then(async (exists) => {
-      if (exists) {
-        let update = await Setup.findOneAndUpdate(guildId, channelId, {
-          new: true,
-        });
-      } else {
-        const newInput = await Setup.create({
-          idserver: message.guildId,
-          input: message.channelId,
-        });
-      }
-    });
-  }
-  if (message.content.startsWith("!setup output")) {
-    const guildId = { idserver: message.guildId };
-    const channelId = { output: message.channelId };
-
-    message.channel.send(
-      "PTS Bot : ce channel est le nouveau channel de sortie"
-    );
-
-    Setup.exists({ idserver: message.guildId }).then(async (exists) => {
-      if (exists) {
-        let update = await Setup.findOneAndUpdate(guildId, channelId, {
-          new: true,
-        });
-      } else {
-        const newOutput = await Setup.create({
-          idserver: message.guildId,
-          output: message.channelId,
-        });
-      }
-    });
-  }
-});
-
-// init command bot
+// Get new message
 client.on("messageCreate", async (message) => {
   const checkerInput = await setupCheckerInput(message.channelId);
-  // check new url
+
+  // Check for new URLs
   if (
     message.content.startsWith("https://steamcommunity.com/") &&
     message.channelId == checkerInput?.input
   ) {
-    // confirmation message by bot
     message.channel.send("PTS Bot surveille : " + message.content);
-    // Put new user in DB
+    // Push a new user in DB
     const newUrl = await Profile.create({
       url: message.content,
-      ban: await checker(message.content),
+      ban: await scapBan(message.content),
+      slut: await scapName(message.content),
       user: message.author.username,
     });
-    // delete user message
+    // Delete user message
     message.delete(message.id);
   }
 
-  // test bot is online or not
+  // Debug command
   if (message.content.startsWith("!ping")) {
-    console.log(message);
     message.channel.send("pong " + message.channelId);
   }
 
-  // deleted not valide url
+  // Deleted invalid url or invalid input
   if (
     message.content.indexOf("https://steamcommunity.com/") == -1 &&
     message.content.indexOf(
@@ -121,14 +44,62 @@ client.on("messageCreate", async (message) => {
     ) == -1 &&
     message.content.indexOf("PTS Bot surveille :") == -1 &&
     message.content.indexOf("pong") == -1 &&
+    message.content.indexOf("Ce channel est le nouveau channel d'entrée") ==
+      -1 &&
+    message.content.indexOf("Ce channel est le nouveau channel de sortie") ==
+      -1 &&
     message.content.indexOf(
-      "PTS Bot : ce channel est le nouveau channel d'entrée"
-    ) == -1 &&
-    message.content.indexOf(
-      "PTS Bot : ce channel est le nouveau channel d'entrée"
+      "Valve à fais son travail une pute a été trouvée"
     ) == -1 &&
     message.channelId == checkerInput?.input
   ) {
     message.delete(message.id);
+  }
+
+  // Setup command input
+  if (message.content.startsWith("!setup input")) {
+    const guildId = { idserver: message.guildId };
+    const channelId = { input: message.channelId };
+
+    message.channel.send("Ce channel est le nouveau channel d'entrée");
+
+    // Check if the discord server is already on the DB
+    Setup.exists({ idserver: message.guildId }).then(async (exists) => {
+      if (exists) {
+        //If there is an update
+        let update = await Setup.findOneAndUpdate(guildId, channelId, {
+          new: true,
+        });
+      } else {
+        //Else, create one
+        const newInput = await Setup.create({
+          idserver: message.guildId,
+          input: message.channelId,
+        });
+      }
+    });
+  }
+  // Setup command output
+  if (message.content.startsWith("!setup output")) {
+    const guildId = { idserver: message.guildId };
+    const channelId = { output: message.channelId };
+
+    message.channel.send("Ce channel est le nouveau channel de sortie");
+
+    // Check if the discord server is already on the DB
+    Setup.exists({ idserver: message.guildId }).then(async (exists) => {
+      //If there is an update
+      if (exists) {
+        let update = await Setup.findOneAndUpdate(guildId, channelId, {
+          new: true,
+        });
+      } else {
+        //Else, create one
+        const newOutput = await Setup.create({
+          idserver: message.guildId,
+          output: message.channelId,
+        });
+      }
+    });
   }
 });

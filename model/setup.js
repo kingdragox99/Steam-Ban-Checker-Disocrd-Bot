@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
 
 const setupSchema = new mongoose.Schema({
-  idserver: Number,
-  input: Number,
-  output: Number,
+  idserver: String,
+  input: String,
+  output: String,
 });
 
 const Setup = mongoose.model("Setup", setupSchema);

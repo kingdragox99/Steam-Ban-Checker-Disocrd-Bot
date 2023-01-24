@@ -1,19 +1,19 @@
 const cheerio = require("cheerio");
 const axios = require("axios");
 
-async function checker(url) {
+async function scapName(url) {
   try {
     let res = await axios.get(url);
     let $ = await cheerio.load(res.data);
-    let status = $(".profile_ban").text();
+    let status = $(".actual_persona_name").text();
     if (status) {
-      return true;
+      return status;
     } else {
-      return false;
+      return "Pute sans nom";
     }
   } catch (err) {
     console.log(err);
   }
 }
 
-module.exports = checker;
+module.exports = scapName;
