@@ -23,7 +23,7 @@ const checkForBan = async () => {
         );
         // Send message in all channels
         client.channels.cache.get(channels[i].output).send({
-          content: `Valve a faits son travail une pute a été trouvée ${ban.url}`,
+          content: `Valve a faits son travail une pute a été trouvée ${data.url}`,
         });
         // Update ban status for false to true
         let update = await Profile.findOneAndUpdate(
