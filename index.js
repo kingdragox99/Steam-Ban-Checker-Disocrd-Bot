@@ -6,6 +6,7 @@ const scapBan = require("./modules/scapBan.js");
 const scapName = require("./modules/scapName.js");
 const Profile = require("./model/profile.js");
 const Setup = require("./model/setup.js");
+const textChecker = require("./modules/textChecker.js");
 
 console.log(
   "\x1b[41m\x1b[1mBOT:\x1b[0m This \x1b[31m\x1b[1mBOT\x1b[0m was made with Love by \x1b[41m\x1b[1mDragolelele\x1b[0m"
@@ -20,7 +21,8 @@ client.on("messageCreate", async (message) => {
 
   // Check for new URLs
   if (
-    message.content.startsWith("https://steamcommunity.com/") &&
+    (message.content.startsWith("https://steamcommunity.com/id/") ||
+      message.content.startsWith("https://steamcommunity.com/profiles/")) &&
     message.channelId == checkerInput?.input
   ) {
     message.channel.send("PTS Bot surveille : " + message.content);
@@ -40,24 +42,13 @@ client.on("messageCreate", async (message) => {
     message.channel.send("pong " + message.channelId);
   }
 
-  // TODO Need to be rework
   // Deleted invalid url or invalid command
+
   if (
-    message.content.indexOf("https://steamcommunity.com/") == -1 &&
-    message.content.indexOf(
-      "Votre message n'est pas un URL ou une commande valide"
-    ) == -1 &&
-    message.content.indexOf("PTS Bot surveille :") == -1 &&
-    message.content.indexOf("pong") == -1 &&
-    message.content.indexOf("Ce channel est le nouveau channel d'entrée") ==
-      -1 &&
-    message.content.indexOf("Ce channel est le nouveau channel de sortie") ==
-      -1 &&
-    message.content.indexOf(
-      "Valve à fais son travail une pute a été trouvée"
-    ) == -1 &&
+    textChecker(message.content) == false &&
     message.channelId == checkerInput?.input
   ) {
+    console.log("This message has been deleted " + message.content);
     message.delete(message.id);
   }
 

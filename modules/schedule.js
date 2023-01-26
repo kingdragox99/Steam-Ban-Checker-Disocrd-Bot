@@ -1,7 +1,7 @@
 const CronJob = require("cron").CronJob;
 const checkForBan = require("../modules/checkForBan.js");
 
-// Create a schedule every 10s for all tasks
+// Create a schedule every 1m for all tasks
 const scheduleStart = () => {
   var schedule = new CronJob(
     "*/1 * * * *",
