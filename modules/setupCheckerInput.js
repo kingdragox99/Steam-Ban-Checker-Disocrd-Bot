@@ -1,7 +1,7 @@
-const Setup = require("../model/setup.js");
+const Server = require("../model/server.js");
 
 const setupCheckerInput = (channelId) => {
-  return Setup.findOne({ input: channelId }).exec();
+  return Server.findOne({ input: channelId }).exec();
 };
 
 module.exports = setupCheckerInput;

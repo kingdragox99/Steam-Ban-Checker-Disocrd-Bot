@@ -1,5 +1,6 @@
 const command = require("../modules/textArray.js");
 
+// Check if the input string is include in command array
 function textChecker(string) {
   let checker = false;
   command.forEach(function (data) {
@@ -7,7 +8,7 @@ function textChecker(string) {
       checker = true;
     }
   });
-
+  // Return true or false
   return checker;
 }
 

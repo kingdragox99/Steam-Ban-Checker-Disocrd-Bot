@@ -1,13 +1,13 @@
 const Profile = require("../model/profile.js");
-const Setup = require("../model/setup.js");
+const Server = require("../model/server.js");
 const client = require("../modules/initBot.js");
 const scapBan = require("./scapBan.js");
 
 const checkForBan = async () => {
   const ban = await Profile.find({ ban: false }).exec(); // Get all users with ban = false
-  const channels = await Setup.find({ output: { $gt: 1 } }).exec(); // Get all output
+  const channels = await Server.find({ output: { $gt: 1 } }).exec(); // Get all output
 
-  console.log(`\x1b[41m\x1b[1mBOT:\x1b[0m Check for new ban\x1b[0m`);
+  console.log(`\x1b[41m\x1b[1mBOT:\x1b[0m Check for new bans\x1b[0m`);
 
   // For each user with "ban = false" does this:
   ban.forEach(async (data) => {
