@@ -33,7 +33,9 @@ client.on("messageCreate", async (message) => {
       `\x1b[41m\x1b[1mBOT:\x1b[0m We keep an eye on \x1b[45m\x1b[1m\x1b[31m ${message.content} \x1b[0m`
     );
     message.channel.send(
-      `${languageSeter(langServerData?.lang || "en_EN").response_watch} ${message.content}`
+      `${languageSeter(langServerData?.lang || "en_EN").response_watch} ${
+        message.content
+      }`
     );
     // Push a new user in DB
     const newSurveil = await Profile.create({
@@ -53,7 +55,9 @@ client.on("messageCreate", async (message) => {
       `${languageSeter(langServerData?.lang || "en_EN").command_input}`
     )
   ) {
-    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_input}`);
+    message.channel.send(
+      `${languageSeter(langServerData?.lang || "en_EN").text_input}`
+    );
     setupBot(message.guildId, message.channelId, "input");
   }
 
@@ -63,7 +67,9 @@ client.on("messageCreate", async (message) => {
       `${languageSeter(langServerData?.lang || "en_EN").command_output}`
     )
   ) {
-    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_output}`);
+    message.channel.send(
+      `${languageSeter(langServerData?.lang || "en_EN").text_output}`
+    );
     setupBot(message.guildId, message.channelId, "output");
   }
 
@@ -76,22 +82,40 @@ client.on("messageCreate", async (message) => {
     message.channel.send(`pong ${message.channelId}`);
   }
 
+  // Command bot French
   if (
     message.content.startsWith(
       `${languageSeter(langServerData?.lang || "en_EN").command_lang_fr}`
     )
   ) {
-    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_lang_fr}`);
+    message.channel.send(
+      `${languageSeter(langServerData?.lang || "en_EN").text_lang_fr}`
+    );
     languageChanger(message.guildId, "fr_FR");
   }
 
+  // Command bot English
   if (
     message.content.startsWith(
       `${languageSeter(langServerData?.lang || "en_EN").command_lang_en}`
     )
   ) {
-    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_lang_en}`);
+    message.channel.send(
+      `${languageSeter(langServerData?.lang || "en_EN").text_lang_en}`
+    );
     languageChanger(message.guildId, "en_EN");
+  }
+
+  // Command bot Spanish
+  if (
+    message.content.startsWith(
+      `${languageSeter(langServerData?.lang || "en_EN").command_lang_es}`
+    )
+  ) {
+    message.channel.send(
+      `${languageSeter(langServerData?.lang || "en_EN").text_lang_es}`
+    );
+    languageChanger(message.guildId, "es_ES");
   }
 
   // Deleted invalid url or invalid command
