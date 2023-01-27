@@ -4,6 +4,8 @@ const client = require("../modules/initBot.js");
 const scapBan = require("../modules/scapBan.js");
 const languageSeter = require("../modules/languageSeter.js");
 
+// TODO only send message on guild how's add suspect
+
 const checkForBan = async () => {
   const ban = await Profile.find({ ban: false }).exec(); // Get all users with ban = false
   const channels = await Server.find({ output: { $gt: 1 } }).exec(); // Get all output
