@@ -13,7 +13,7 @@ function setupBot(guild, channel, way) {
   };
 
   // Merge 2 objects for createnew server
-  const createBot = { ID_server: guild, ...channelId(way) };
+  const createBot = { ID_server: guild, lang: "en_EN", ...channelId(way) };
 
   // Check if the discord server is already on the DB
   Server.exists({ ID_server: guild }).then(async (exists) => {

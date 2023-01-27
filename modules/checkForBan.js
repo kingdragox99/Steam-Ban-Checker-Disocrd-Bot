@@ -1,7 +1,8 @@
 const Profile = require("../model/profile.js");
 const Server = require("../model/server.js");
 const client = require("../modules/initBot.js");
-const scapBan = require("./scapBan.js");
+const scapBan = require("../modules/scapBan.js");
+const languageSeter = require("../modules/languageSeter.js");
 
 const checkForBan = async () => {
   const ban = await Profile.find({ ban: false }).exec(); // Get all users with ban = false
@@ -21,9 +22,11 @@ const checkForBan = async () => {
         console.log(
           `\x1b[41m\x1b[1mBOT:\x1b[0m A slut was detected \x1b[45m\x1b[1m\x1b[31m${data.url}\x1b[0m`
         );
-        // Send message in all channels
+        // Send message in all channels !setup output
         client.channels.cache.get(channels[i].output).send({
-          content: `Valve a faits son travail une pute a été trouvée ${data.url}`,
+          content: `${
+            languageSeter(channels[i]?.lang || "en_EN").response_ban
+          } ${data.url}`,
         });
         // Update ban status for false to true
         let update = await Profile.findOneAndUpdate(

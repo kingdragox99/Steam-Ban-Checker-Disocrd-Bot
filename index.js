@@ -7,6 +7,9 @@ const scapName = require("./modules/scapName.js");
 const Profile = require("./model/profile.js");
 const textChecker = require("./modules/textChecker.js");
 const setupBot = require("./modules/setupBot.js");
+const languageChanger = require("./modules/languageChanger.js");
+const languageChecker = require("./modules/languageChecker.js");
+const languageSeter = require("./modules/languageSeter.js");
 
 console.log(
   "\x1b[41m\x1b[1mBOT:\x1b[0m This \x1b[31m\x1b[1mBOT\x1b[0m was made with Love by \x1b[41m\x1b[1mDragolelele\x1b[0m"
@@ -18,6 +21,7 @@ scheduleStart(); // Start daily task
 // Get new message
 client.on("messageCreate", async (message) => {
   const checkerInput = await setupCheckerInput(message.channelId);
+  const langServerData = await languageChecker(message.guildId);
 
   // Check for new URLs
   if (
@@ -28,7 +32,9 @@ client.on("messageCreate", async (message) => {
     console.log(
       `\x1b[41m\x1b[1mBOT:\x1b[0m We keep an eye on \x1b[45m\x1b[1m\x1b[31m ${message.content} \x1b[0m`
     );
-    message.channel.send("PTS Bot surveille : " + message.content);
+    message.channel.send(
+      `${languageSeter(langServerData?.lang || "en_EN").response_watch} ${message.content}`
+    );
     // Push a new user in DB
     const newSurveil = await Profile.create({
       ID_server: message.guildId,
@@ -42,25 +48,58 @@ client.on("messageCreate", async (message) => {
   }
 
   // Setup command input
-  if (message.content.startsWith("!setup input")) {
-    message.channel.send("Ce channel est le nouveau channel d'entrée");
+  if (
+    message.content.startsWith(
+      `${languageSeter(langServerData?.lang || "en_EN").command_input}`
+    )
+  ) {
+    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_input}`);
     setupBot(message.guildId, message.channelId, "input");
   }
 
   // Setup command output
-  if (message.content.startsWith("!setup output")) {
-    message.channel.send("Ce channel est le nouveau channel de sortie");
+  if (
+    message.content.startsWith(
+      `${languageSeter(langServerData?.lang || "en_EN").command_output}`
+    )
+  ) {
+    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_output}`);
     setupBot(message.guildId, message.channelId, "output");
   }
 
   // Debug command
-  if (message.content.startsWith("!ping")) {
-    message.channel.send("pong " + message.channelId);
+  if (
+    message.content.startsWith(
+      `${languageSeter(langServerData?.lang || "en_EN").command_ping}`
+    )
+  ) {
+    message.channel.send(`pong ${message.channelId}`);
+  }
+
+  if (
+    message.content.startsWith(
+      `${languageSeter(langServerData?.lang || "en_EN").command_lang_fr}`
+    )
+  ) {
+    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_lang_fr}`);
+    languageChanger(message.guildId, "fr_FR");
+  }
+
+  if (
+    message.content.startsWith(
+      `${languageSeter(langServerData?.lang || "en_EN").command_lang_en}`
+    )
+  ) {
+    message.channel.send(`${languageSeter(langServerData?.lang || "en_EN").text_lang_en}`);
+    languageChanger(message.guildId, "en_EN");
   }
 
   // Deleted invalid url or invalid command
   if (
-    textChecker(message.content) == false &&
+    textChecker(
+      message.content,
+      languageSeter(langServerData?.lang || "en_EN")
+    ) == false &&
     message.channelId == checkerInput?.input
   ) {
     message.delete(message.id);
