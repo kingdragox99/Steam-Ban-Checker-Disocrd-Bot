@@ -41,6 +41,18 @@ client.on("messageCreate", async (message) => {
     message.delete(message.id);
   }
 
+  // Setup command input
+  if (message.content.startsWith("!setup input")) {
+    message.channel.send("Ce channel est le nouveau channel d'entrée");
+    setupBot(message.guildId, message.channelId, "input");
+  }
+
+  // Setup command output
+  if (message.content.startsWith("!setup output")) {
+    message.channel.send("Ce channel est le nouveau channel de sortie");
+    setupBot(message.guildId, message.channelId, "output");
+  }
+
   // Debug command
   if (message.content.startsWith("!ping")) {
     message.channel.send("pong " + message.channelId);
@@ -55,17 +67,5 @@ client.on("messageCreate", async (message) => {
     console.log(
       `\x1b[41m\x1b[1mBOT:\x1b[0m This message has been deleted: \x1b[1m\x1b[33m${message.content}\x1b[0m`
     );
-  }
-
-  // Setup command input
-  if (message.content.startsWith("!setup input")) {
-    message.channel.send("Ce channel est le nouveau channel d'entrée");
-    setupBot(message.guildId, message.channelId, "input");
-  }
-
-  // Setup command output
-  if (message.content.startsWith("!setup output")) {
-    message.channel.send("Ce channel est le nouveau channel de sortie");
-    setupBot(message.guildId, message.channelId, "output");
   }
 });
