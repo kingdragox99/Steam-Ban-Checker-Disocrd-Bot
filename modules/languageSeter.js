@@ -11,6 +11,9 @@ const languageSeter = (data) => {
     case "es_ES":
       return language.es_ES;
       break;
+    case "command": // only for commands
+      return language.command;
+      break;
   }
 };
 
