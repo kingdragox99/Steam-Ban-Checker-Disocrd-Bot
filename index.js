@@ -82,27 +82,26 @@ client.on("messageCreate", async (message) => {
     message.channel.send(`pong ${message.channelId}`);
   }
 
-  // TODO fix double sent message
   // Change lang command
-  // if (message.content.startsWith("!setup lang")) {
-  //   switch (message.content.toLowerCase()) {
-  //     case `${languageSeter("command").command_lang_fr}`: // Command bot French
-  //       languageChanger(message.guildId, "fr_FR");
-  //       message.channel.send(`${languageSeter("command").text_lang_fr}`);
-  //       break;
-  //     case `${languageSeter("command").command_lang_en}`: // Command bot English
-  //       languageChanger(message.guildId, "en_EN");
-  //       message.channel.send(`${languageSeter("command").text_lang_en}`);
-  //       break;
-  //     case `${languageSeter("command").command_lang_es}`: // Command bot Spanish
-  //       languageChanger(message.guildId, "es_ES");
-  //       message.channel.send(`${languageSeter("command").text_lang_es}`);
-  //       break;
-  //     default:
-  //       languageChanger(message.guildId, "en_EN");
-  //       message.channel.send(`${languageSeter("command").text_lang_error}`);
-  //   }
-  // }
+  if (message.content.startsWith("!setup lang")) {
+    switch (message.content.toLowerCase()) {
+      case `${languageSeter("command").command_lang_fr}`: // Command bot French
+        languageChanger(message.guildId, "fr_FR");
+        message.channel.send(`${languageSeter("command").text_lang_fr}`);
+        break;
+      case `${languageSeter("command").command_lang_en}`: // Command bot English
+        languageChanger(message.guildId, "en_EN");
+        message.channel.send(`${languageSeter("command").text_lang_en}`);
+        break;
+      case `${languageSeter("command").command_lang_es}`: // Command bot Spanish
+        languageChanger(message.guildId, "es_ES");
+        message.channel.send(`${languageSeter("command").text_lang_es}`);
+        break;
+      default:
+        languageChanger(message.guildId, "en_EN");
+        message.channel.send(`${languageSeter("command").text_lang_error}`);
+    }
+  }
 
   // Deleted invalid url or invalid command
   if (
