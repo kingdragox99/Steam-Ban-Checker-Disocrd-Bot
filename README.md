@@ -10,13 +10,6 @@ Install Steam-Ban-Checker-Discord-Bot with yarn
 
 [Mongo DB](https://www.mongodb.com/)
 
-Make .env with
-
-```bash
-CLIENT_TOKEN="YOUR_DISCORD_API_KEY"
-MONGO_URL="YOUR_MONGODB_CONNECT"
-```
-
 After putting that in console
 
 ```bash
@@ -35,6 +28,13 @@ After putting that in console
   cd Steam-Ban-Checker-Discord-Bot
   yarn
   node index.js
+```
+
+Create a .env in the file "Steam-Ban-Checker-Discord-Bot" with
+
+```bash
+CLIENT_TOKEN="YOUR_DISCORD_API_KEY"
+MONGO_URL="YOUR_MONGODB_CONNECT"
 ```
 
 Go on discord and type in channels
