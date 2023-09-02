@@ -49,5 +49,3 @@ Example :
   !setup output // If a cheater was detected, he will be put here
   !setup lang (fr/en/es) // Change lang FR EN ES
 ```
-
-![Logo](https://i.imgur.com/ErAZmVx.png)
