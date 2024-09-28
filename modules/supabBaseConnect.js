@@ -3,9 +3,9 @@ require("dotenv").config();
 
 // WIP
 
-const supabaseUrl = "https://thsdyclkzguvethyngrm.supabase.co";
-const supabaseKey = process.env.SUPABASE_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
 // module.exports = supabaseconnect;

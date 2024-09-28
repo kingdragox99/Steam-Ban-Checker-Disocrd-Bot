@@ -1,10 +1,8 @@
-const dbConnect = require("./modules/dbConnect.js");
 const client = require("./modules/initBot.js");
 const setupCheckerInput = require("./modules/setupCheckerInput.js");
 const scheduleStart = require("./modules/schedule.js");
 const scapBan = require("./modules/scapBan.js");
 const scapName = require("./modules/scapName.js");
-const Profile = require("./model/profile.js");
 const textChecker = require("./modules/textChecker.js");
 const setupBot = require("./modules/setupBot.js");
 const languageChanger = require("./modules/languageChanger.js");
@@ -15,24 +13,18 @@ console.log(
   "\x1b[41m\x1b[1mBOT:\x1b[0m This \x1b[31m\x1b[1mBOT\x1b[0m was made with Love by \x1b[41m\x1b[1mDragolelele\x1b[0m"
 );
 
-dbConnect(); // connect to DB
 scheduleStart(); // Start daily task
 
 ////////////////////////////////////WIP SUPABASE//////////////////////////////////////////////////////////////////
 const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
-const supabaseUrl = "https://thsdyclkzguvethyngrm.supabase.co";
-const supabaseKey = process.env.SUPABASE_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 const test = async () => {
-  const { data, error } = await supabase.from("discord").insert({
-    id_server: "16554545",
-    input: "165655654545",
-    output: "165564544545",
-    lang: "en_EN",
-  });
+  const { data, error } = await supabase.from("discord").select();
   if (error) {
     console.log(error);
   } else {
@@ -64,14 +56,17 @@ client.on("messageCreate", async (message) => {
         message.content
       }`
     );
-    // Push a new user in DB
-    const newSurveil = await Profile.create({
-      ID_server: message.guildId,
+    // Push a new user in db
+
+    const { error } = await supabase.from("profil").insert({
+      id_server: message.guildId,
       watcher_user: message.author.username,
       url: message.content,
       watch_user: await scapName(message.content),
       ban: await scapBan(message.content),
     });
+    if (error) console.log(error);
+
     // Delete user message
     message.delete(message.id);
   }
