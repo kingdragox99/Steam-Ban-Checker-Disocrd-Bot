@@ -11,15 +11,16 @@ const languageChanger = require("./modules/languageChanger.js");
 const languageChecker = require("./modules/languageChecker.js");
 const languageSeter = require("./modules/languageSeter.js");
 
-const { createClient } = require("@supabase/supabase-js");
-require("dotenv").config();
-
 console.log(
   "\x1b[41m\x1b[1mBOT:\x1b[0m This \x1b[31m\x1b[1mBOT\x1b[0m was made with Love by \x1b[41m\x1b[1mDragolelele\x1b[0m"
 );
 
 dbConnect(); // connect to DB
 scheduleStart(); // Start daily task
+
+////////////////////////////////////WIP SUPABASE//////////////////////////////////////////////////////////////////
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
 
 const supabaseUrl = "https://thsdyclkzguvethyngrm.supabase.co";
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -42,6 +43,7 @@ const test = async () => {
 };
 
 test();
+////////////////////////////////////WIP SUPABASE//////////////////////////////////////////////////////////////////
 
 // Get new message
 client.on("messageCreate", async (message) => {
