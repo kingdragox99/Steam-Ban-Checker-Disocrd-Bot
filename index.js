@@ -11,12 +11,37 @@ const languageChanger = require("./modules/languageChanger.js");
 const languageChecker = require("./modules/languageChecker.js");
 const languageSeter = require("./modules/languageSeter.js");
 
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
+
 console.log(
   "\x1b[41m\x1b[1mBOT:\x1b[0m This \x1b[31m\x1b[1mBOT\x1b[0m was made with Love by \x1b[41m\x1b[1mDragolelele\x1b[0m"
 );
 
 dbConnect(); // connect to DB
 scheduleStart(); // Start daily task
+
+const supabaseUrl = "https://thsdyclkzguvethyngrm.supabase.co";
+const supabaseKey = process.env.SUPABASE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+const test = async () => {
+  const { data, error } = await supabase.from("discord").insert({
+    id_server: "16554545",
+    input: "165655654545",
+    output: "165564544545",
+    lang: "en_EN",
+  });
+  if (error) {
+    console.log(error);
+  } else {
+    console.log(
+      "\x1b[41m\x1b[1mBOT:\x1b[0m \x1b[1m\x1b[32mSupabase\x1b[0m is connected"
+    );
+  }
+};
+
+test();
 
 // Get new message
 client.on("messageCreate", async (message) => {
