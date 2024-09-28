@@ -1,38 +1,66 @@
-const Server = require("../model/server.js");
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
 
-function setupBot(guild, channel, way) {
-  const guildId = { ID_server: guild };
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
-  // Return object by par way
-  const channelId = (e) => {
-    if (e == "input") {
-      return { input: channel };
-    } else {
-      return { output: channel };
+const channelId = (way, channel) =>
+  way === "input" ? { input: channel } : { output: channel };
+
+async function setupBot(guild, channel, way) {
+  const guildId = { id_server: guild };
+
+  try {
+    // Vérifier si l'id_server existe déjà
+    const { data, error: fetchError } = await supabase
+      .from("discord")
+      .select("*")
+      .eq("id_server", guild)
+      .single(); // On suppose que l'id_server est unique
+
+    if (fetchError && fetchError.code !== "PGRST116") {
+      throw new Error(`Error fetching data: ${fetchError.message}`);
     }
-  };
 
-  // Merge 2 objects for createnew server
-  const createBot = { ID_server: guild, lang: "en_EN", ...channelId(way) };
-
-  // Check if the discord server is already on the DB
-  Server.exists({ ID_server: guild }).then(async (exists) => {
-    if (exists) {
-      //If there is an update
-      let update = await Server.findOneAndUpdate(guildId, channelId(way), {
-        new: true,
-      });
-      console.log(
-        `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guild} \x1b[0mhave update ${way} channel`
-      );
+    if (data) {
+      await updateChannel(guild, way, channel);
     } else {
-      //Else, create one
-      const newServer = await Server.create(createBot);
-      console.log(
-        `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guild} \x1b[0mhave make ${way} channel`
-      );
+      await insertServer(guild, way, channel);
     }
-  });
+  } catch (err) {
+    console.error("Error:", err.message);
+  }
+}
+
+async function updateChannel(guild, way, channel) {
+  const { error: updateError } = await supabase
+    .from("discord")
+    .update({ ...channelId(way, channel) })
+    .eq("id_server", guild);
+
+  if (updateError) {
+    throw new Error(`Error updating channel: ${updateError.message}`);
+  }
+
+  console.log(
+    `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guild} \x1b[0mhas updated ${way} channel`
+  );
+}
+
+async function insertServer(guild, way, channel) {
+  const { error: insertError } = await supabase
+    .from("discord")
+    .insert({ id_server: guild, ...channelId(way, channel), lang: "en_EN" });
+
+  if (insertError) {
+    throw new Error(`Error inserting server: ${insertError.message}`);
+  }
+
+  console.log(
+    `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guild} \x1b[0mhas created ${way} channel`
+  );
 }
 
 module.exports = setupBot;

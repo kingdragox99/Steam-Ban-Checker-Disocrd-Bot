@@ -1,30 +1,62 @@
-const Server = require("../model/server.js");
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
 
-function setupChanger(guild, lang) {
-  const guildId = { ID_server: guild };
-  const langName = { lang: lang };
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
-  // Merge 2 objects for createnew server
-  const createBot = { ID_server: guild, lang: lang };
+async function setupChanger(guildId, lang) {
+  // Vérifier si le serveur existe dans la base de données
+  const { data: existingServer, error: fetchError } = await supabase
+    .from("discord")
+    .select("*")
+    .eq("id_server", guildId)
+    .single();
 
-  // Check if the discord server is already on the DB
-  Server.exists({ ID_server: guild }).then(async (exists) => {
-    if (exists) {
-      //If there is an update
-      let update = await Server.findOneAndUpdate(guildId, langName, {
-        new: true,
-      });
-      console.log(
-        `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guild} \x1b[0mhave update lang to ${lang}`
-      );
-    } else {
-      //Else, create one
-      const newServer = await Server.create(createBot);
-      console.log(
-        `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guild} \x1b[0mhave make ${lang} channel`
-      );
-    }
-  });
+  if (fetchError && fetchError.code !== "PGRST116") {
+    console.error("Error checking for existing server:", fetchError.message);
+    return;
+  }
+
+  // Mettre à jour la langue ou créer un nouveau serveur
+  if (existingServer) {
+    await updateServerLanguage(guildId, lang);
+  } else {
+    await createNewServer(guildId, lang);
+  }
+}
+
+async function updateServerLanguage(guildId, lang) {
+  const { error: updateError } = await supabase
+    .from("discord")
+    .update({ lang }) // Mettre à jour la langue directement
+    .eq("id_server", guildId);
+
+  if (updateError) {
+    console.error("Error updating server language:", updateError.message);
+    return;
+  }
+
+  console.log(
+    `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guildId} \x1b[0mhas updated lang to ${lang}`
+  );
+}
+
+async function createNewServer(guildId, lang) {
+  const newServer = { id_server: guildId, lang }; // Objet à créer pour un nouveau serveur
+  const { error: createError } = await supabase
+    .from("discord")
+    .insert(newServer);
+
+  if (createError) {
+    console.error("Error creating new server:", createError.message);
+    return;
+  }
+
+  console.log(
+    `\x1b[41m\x1b[1mBOT:\x1b[0m GuildId:\x1b[33m\x1b[1m ${guildId} \x1b[0mhas created ${lang} channel`
+  );
 }
 
 module.exports = setupChanger;

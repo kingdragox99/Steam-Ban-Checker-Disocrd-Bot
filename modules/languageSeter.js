@@ -1,20 +1,14 @@
 const language = require("../lang/langs.js");
 
 const languageSeter = (data) => {
-  switch (data) {
-    case "fr_FR":
-      return language.fr_FR;
-      break;
-    case "en_EN":
-      return language.en_EN;
-      break;
-    case "es_ES":
-      return language.es_ES;
-      break;
-    case "command": // only for commands
-      return language.command;
-      break;
-  }
+  const langMap = {
+    fr_FR: language.fr_FR,
+    en_EN: language.en_EN,
+    es_ES: language.es_ES,
+    command: language.command,
+  };
+
+  return langMap[data] || en_EN; // Retourne la langue correspondante ou null si non trouvé
 };
 
 module.exports = languageSeter;

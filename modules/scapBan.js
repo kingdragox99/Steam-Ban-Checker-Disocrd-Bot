@@ -3,16 +3,14 @@ const axios = require("axios");
 
 async function scapBan(url) {
   try {
-    let res = await axios.get(url);
-    let $ = await cheerio.load(res.data);
-    let status = $(".profile_ban").text();
-    if (status) {
-      return true;
-    } else {
-      return false;
-    }
+    const { data } = await axios.get(url);
+    const $ = cheerio.load(data);
+    const status = $(".profile_ban").text().trim(); // Utilisation de trim pour nettoyer le texte
+
+    return !!status; // Retourne true si le statut est non vide, false sinon
   } catch (err) {
-    console.log(err);
+    console.error("Error fetching data:", err.message);
+    return null; // Retourner null en cas d'erreur
   }
 }
 
