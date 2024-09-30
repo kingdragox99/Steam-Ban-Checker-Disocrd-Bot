@@ -28,7 +28,7 @@ After putting that in console
   git clone https://github.com/kingdragox99/Steam-Ban-Checker-Discord-Bot.git
   cd Steam-Ban-Checker-Discord-Bot
   cat .env
-  nano .env <---- /!\ and add .env step line with your api key /!\
+  nano .env <---- /!\ and add .env step with your api key /!\
   yarn
   node index.js
 ```
