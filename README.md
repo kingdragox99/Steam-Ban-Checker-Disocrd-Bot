@@ -2,13 +2,15 @@
 
 this bot will check if a user has been monitored vac ban or ow ban
 
+WIP project please report bug and crash
+
 ## Installation
 
 Install Steam-Ban-Checker-Discord-Bot with yarn
 
 [Discord api](https://discord.com/developers/applications)
 
-[Mongo DB](https://www.mongodb.com/)
+[SUPA BASE](https://www.supabase.com/)
 
 After putting that in console
 
@@ -17,15 +19,16 @@ After putting that in console
   sudo apt upgrade
   sudo apt install curl
   sudo apt install screen
-  curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+  sudo apt install git
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
   sudo apt install nodejs
   sudo apt install npm
-  sudo npm install -g npm@9.3.1
   sudo npm install --global yarn
-  sudo apt install git
   screen -S ban-watch
   git clone https://github.com/kingdragox99/Steam-Ban-Checker-Discord-Bot.git
   cd Steam-Ban-Checker-Discord-Bot
+  cat .env
+  nano .env <---- /!\ and add .env step line with your api key /!\
   yarn
   node index.js
 ```
@@ -33,8 +36,9 @@ After putting that in console
 Create a .env in the file "Steam-Ban-Checker-Discord-Bot" with
 
 ```bash
-CLIENT_TOKEN="YOUR_DISCORD_API_KEY"
-MONGO_URL="YOUR_MONGODB_CONNECT"
+SUPABASE_URL = "SUPA BASE API URL"
+SUPABASE_KEY = "SUPA BASE API KEY"
+CLIENT_TOKEN = "=DISCORD BOT API KEY"
 ```
 
 Go on discord and type in channels
