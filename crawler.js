@@ -10,8 +10,6 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-// bug ajout nom dans la db
-
 // Ta clé d'API Steam
 const steamApiKey = process.env.STEAM_API;
 
