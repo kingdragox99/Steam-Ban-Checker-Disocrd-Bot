@@ -1,11 +1,6 @@
 const cheerio = require("cheerio");
 const axios = require("axios");
 
-/**
- * Récupère le nom d'une personne à partir de l'URL fournie
- * @param {string} url - L'URL à scrapper
- * @returns {Promise<string>} - Retourne le nom récupéré ou un nom par défaut en cas d'absence
- */
 async function scapName(url) {
   try {
     const { data } = await axios.get(url);
