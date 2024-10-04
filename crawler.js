@@ -52,7 +52,10 @@ async function addContact(contactUrl) {
     .eq("url", contactUrl);
 
   if (existingContact.length > 0) {
-    console.log(`Le contact ${contactUrl} est déjà dans la base de données.`);
+    console.log(
+      `
+\x1b[45m\x1b[1mCRAWLER:\x1b[0m The contact \x1b[33m\x1b[1m${contactUrl}\x1b[0m is already in the database.`
+    );
     return;
   }
 
@@ -69,11 +72,14 @@ async function addContact(contactUrl) {
 
   if (error) {
     console.error(
-      "Erreur lors de l'insertion dans la base de données :",
+      "\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mError during database insertion :\x1b[0m",
       error
     );
   } else {
-    console.log(`Contact ${contactUrl} ajouté avec succès.`);
+    console.log(
+      `
+\x1b[45m\x1b[1mCRAWLER:\x1b[0m Contact \x1b[32m\x1b[1m${contactUrl}\x1b[0m successfully added.`
+    );
   }
 }
 
@@ -93,7 +99,8 @@ async function fetchSteamContacts(profileUrl) {
     return contacts;
   } catch (error) {
     console.error(
-      `Erreur lors de la récupération du profil Steam: ${error.message}`
+      `
+\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mError retrieving Steam profile :\x1b[31\x1b[0m ${error.message}`
     );
     return [];
   }
@@ -103,7 +110,10 @@ async function fetchSteamContacts(profileUrl) {
 async function crawlSteamProfile(profileUrl) {
   // Vérifier si le profil a déjà été visité pour éviter les boucles infinies
   if (visitedProfiles.has(profileUrl)) {
-    console.log(`Le profil ${profileUrl} a déjà été visité.`);
+    console.log(
+      `
+\x1b[45m\x1b[1mCRAWLER:\x1b[0m profile \x1b[33m\x1b[1m${profileUrl}\x1b[0m has already been visited. `
+    );
     return;
   }
 
@@ -113,7 +123,9 @@ async function crawlSteamProfile(profileUrl) {
   // Convertir l'URL en steamID64 si nécessaire
   const normalizedProfileUrl = await convertToSteamId64(profileUrl);
   if (!normalizedProfileUrl) {
-    console.error("Impossible de convertir l'URL en steamID64.");
+    console.error(
+      "\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mUnable to convert URL to steamID64.\x1b[0m"
+    );
     return;
   }
 
