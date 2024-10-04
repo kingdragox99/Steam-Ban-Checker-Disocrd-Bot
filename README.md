@@ -42,7 +42,7 @@ SUPABASE_URL = "SUPA BASE API URL"
 SUPABASE_KEY = "SUPA BASE API KEY"
 CLIENT_TOKEN = "=DISCORD BOT API KEY"
 STEAM_API = "STEAM API KEY"
-CRAWLER_SEED = "https://steamcommunity.com/id/El_Papite" <- steam profile url
+CRAWLER_SEED = "https://steamcommunity.com/id/El_Papite/" <- steam profile url
 ```
 
 Structure de la db supabase

@@ -83,24 +83,28 @@ async function addContact(contactUrl) {
   }
 }
 
-// Fonction pour récupérer les contacts d'un profil Steam
-async function fetchSteamContacts(profileUrl) {
+// Fonction pour récupérer les contacts d'un profil Steam depuis la page /friends/
+async function fetchSteamFriends(profileUrl) {
   try {
-    const { data: html } = await axios.get(profileUrl);
+    // Ajout de /friends/ à l'URL du profil pour accéder à la liste des amis
+    const friendsUrl = `${profileUrl}friends/`;
+    const { data: html } = await axios.get(friendsUrl);
     const $ = cheerio.load(html);
 
-    // Scraping des URL des contacts
+    // Scraping des URLs des amis depuis les éléments avec la classe .selectable_overlay
     const contacts = [];
-    $("a.friendBlockLinkOverlay").each((index, element) => {
+    $(".selectable_overlay").each((index, element) => {
       const contactUrl = $(element).attr("href");
-      contacts.push(contactUrl);
+      if (contactUrl) {
+        contacts.push(contactUrl);
+      }
     });
 
     return contacts;
   } catch (error) {
     console.error(
       `
-\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mError retrieving Steam profile :\x1b[31\x1b[0m ${error.message}`
+\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mError retrieving Steam friends page :\x1b[31\x1b[0m ${error.message}`
     );
     return [];
   }
@@ -129,8 +133,8 @@ async function crawlSteamProfile(profileUrl) {
     return;
   }
 
-  // Récupérer les contacts du profil
-  const contacts = await fetchSteamContacts(normalizedProfileUrl);
+  // Récupérer les contacts depuis la page /friends/
+  const contacts = await fetchSteamFriends(normalizedProfileUrl);
 
   for (const contactUrl of contacts) {
     const normalizedContactUrl = await convertToSteamId64(contactUrl); // Convertir les URLs des contacts également
