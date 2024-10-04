@@ -8,9 +8,11 @@ WIP project please report bug and crash
 
 Install Steam-Ban-Checker-Discord-Bot with yarn
 
-[Discord api](https://discord.com/developers/applications)
+[Discord API](https://discord.com/developers/applications)
 
 [SUPA BASE](https://www.supabase.com/)
+
+[Steam API Key](https://steamcommunity.com/dev/apikey)
 
 After putting that in console
 
@@ -39,6 +41,29 @@ Create a .env in the file "Steam-Ban-Checker-Discord-Bot" with
 SUPABASE_URL = "SUPA BASE API URL"
 SUPABASE_KEY = "SUPA BASE API KEY"
 CLIENT_TOKEN = "=DISCORD BOT API KEY"
+STEAM_API = "STEAM API KEY"
+CRAWLER_SEED = "https://steamcommunity.com/id/Panicillin" <- steam profile url
+```
+
+Structure de la db supabase
+
+```sql
+CREATE TABLE profil (
+    id SERIAL PRIMARY KEY,
+    id_server TEXT,
+    watcher_user TEXT,
+    url VARCHAR,
+    watch_user TEXT,
+    ban BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE discord (
+    id SERIAL PRIMARY KEY,
+    id_server TEXT,
+    inpute TEXT,
+    output TEXT,
+    lang TEXT
+);
 ```
 
 Go on discord and type in channels
