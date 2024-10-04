@@ -1,6 +1,8 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const { createClient } = require("@supabase/supabase-js");
+const scapBan = require("./modules/scapBan.js");
+const scapName = require("./modules/scapName.js");
 require("dotenv").config();
 
 const supabase = createClient(
@@ -43,35 +45,8 @@ async function convertToSteamId64(profileUrl) {
   }
 }
 
-// Fonction pour récupérer les informations du profil Steam (y compris le nom)
-async function getProfileInfo(steamId64) {
-  const apiUrl = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${steamApiKey}&steamids=${steamId64}`;
-
-  try {
-    const response = await axios.get(apiUrl);
-    const data = response.data;
-
-    if (
-      data.response &&
-      data.response.players &&
-      data.response.players.length > 0
-    ) {
-      const player = data.response.players[0];
-      return player.personaname; // Retourne le nom du profil (personaname)
-    } else {
-      console.error(
-        `Impossible de récupérer les informations du profil pour l'ID Steam ${steamId64}`
-      );
-      return null;
-    }
-  } catch (error) {
-    console.error("Erreur lors de la requête vers l'API Steam :", error);
-    return null;
-  }
-}
-
 // Fonction pour ajouter un contact à la base de données dans la table "profil"
-async function addContact(steamId, contactUrl, profileName) {
+async function addContact(contactUrl) {
   // Vérifier si le contact existe déjà dans la table "profil"
   const { data: existingContact } = await supabase
     .from("profil")
@@ -89,8 +64,8 @@ async function addContact(steamId, contactUrl, profileName) {
       id_server: "crawler",
       watcher_user: "crawler",
       url: contactUrl, // Utilise l'URL avec steamID64
-      watch_user: profileName || steamId, // Utilise le nom du profil si disponible, sinon le steamId
-      ban: false,
+      watch_user: await scapName(contactUrl),
+      ban: await scapBan(contactUrl),
     },
   ]);
 
@@ -144,21 +119,12 @@ async function crawlSteamProfile(profileUrl) {
     return;
   }
 
-  // Récupérer l'ID Steam à partir de l'URL normalisée
-  const steamId = normalizedProfileUrl.split("/profiles/")[1].replace("/", "");
-  if (!steamId) {
-    console.error("Impossible de récupérer l'ID Steam à partir de l'URL.");
-    return;
-  }
-
-  // Récupérer le nom du profil via l'API Steam
-  const profileName = await getProfileInfo(steamId);
-
+  // Récupérer les contacts du profil
   const contacts = await fetchSteamContacts(normalizedProfileUrl);
 
   for (const contactUrl of contacts) {
     const normalizedContactUrl = await convertToSteamId64(contactUrl); // Convertir les URLs des contacts également
-    await addContact(steamId, normalizedContactUrl, profileName);
+    await addContact(normalizedContactUrl);
 
     // Récursivement crawler les contacts des contacts sans limite de profondeur
     await crawlSteamProfile(contactUrl);
@@ -166,7 +132,7 @@ async function crawlSteamProfile(profileUrl) {
 }
 
 // URL du profil Steam de départ (nom personnalisé ou ID numérique)
-const startProfileUrl = "https://steamcommunity.com/id/Panicillin";
+const startProfileUrl = process.env.CRAWLER_SEED;
 
 // Lancer le crawler
 crawlSteamProfile(startProfileUrl);
