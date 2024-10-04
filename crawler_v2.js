@@ -78,7 +78,7 @@ async function addContact(contactUrl) {
   } else {
     console.log(
       `
-\x1b[45m\x1b[1mCRAWLER:\x1b[0m Contact \x1b[32m\x1b[1m${contactUrl}\x1b[0m successfully added.`
+\x1b[45m\x1b[1mCRAWLER:\x1b[0m Contact \x1b[42m\x1b[1m${contactUrl}\x1b[0m successfully added.`
     );
   }
 }
@@ -141,8 +141,5 @@ async function crawlSteamProfile(profileUrl) {
   }
 }
 
-// URL du profil Steam de départ (nom personnalisé ou ID numérique)
-const startProfileUrl = process.env.CRAWLER_SEED;
-
 // Lancer le crawler
-crawlSteamProfile(startProfileUrl);
+crawlSteamProfile(process.env.CRAWLER_SEED);
