@@ -14,7 +14,7 @@ const supabase = createClient(
 const steamApiKey = process.env.STEAM_API;
 
 // Crawler ID
-const crawlerId = "1";
+const crawlerId = "2";
 
 // Ensemble pour garder une trace des profils déjà visités
 const visitedProfiles = new Set();
@@ -227,4 +227,4 @@ async function crawlSteamProfile(startUrl = null) {
 }
 
 // Lancer le crawler avec le profil de démarrage spécifié
-crawlSteamProfile(process.env.CRAWLER_SEED);
+crawlSteamProfile(process.env.CRAWLER_SEED_2);
