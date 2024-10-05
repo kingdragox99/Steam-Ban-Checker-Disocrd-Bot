@@ -90,48 +90,38 @@ async function getNextProfile() {
   return profileUrl;
 }
 
-// Fonction pour marquer un profil comme terminé
-async function markProfileAsDone(profileUrl) {
-  const { error } = await supabase
-    .from("profil")
-    .update({ status: "done" })
-    .eq("url", profileUrl);
-
-  if (error) {
-    console.error(
-      "\x1b[41m\x1b[1mERROR\x1b[0m: when updating the profile status to 'done': ",
-      error
-    );
-  } else {
-    console.log(
-      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[45m\x1b[1m${profileUrl}\x1b[0m marked as completed.`
-    );
-  }
-}
-
 // Fonction pour ajouter un contact à la base de données dans la table "profil"
 async function addContact(contactUrl) {
-  // Vérifier si le contact existe déjà dans la table "profil"
-  const { data: existingContact } = await supabase
-    .from("profil")
-    .select("*")
-    .eq("url", contactUrl);
-
-  if (existingContact.length > 0) {
-    console.log(
-      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[43m\x1b[1m${contactUrl}\x1b[0m is already in the database.`
+  // Convertir l'URL en steamID64 avant de vérifier ou de l'ajouter à la base de données
+  const steamId64Url = await convertToSteamId64(contactUrl);
+  if (!steamId64Url) {
+    console.error(
+      `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31m\x1b[1mCould not convert ${contactUrl} to steamID64.\x1b[0m`
     );
     return;
   }
 
-  // Ajouter le contact dans la table "profil" s'il n'existe pas
+  // Vérifier si le contact existe déjà dans la table "profil"
+  const { data: existingContact } = await supabase
+    .from("profil")
+    .select("*")
+    .eq("url", steamId64Url);
+
+  if (existingContact.length > 0) {
+    console.log(
+      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[43m\x1b[1m${steamId64Url}\x1b[0m is already in the database.`
+    );
+    return;
+  }
+
+  // Ajouter le contact dans la table "profil"
   const { data, error } = await supabase.from("profil").insert([
     {
       id_server: "crawler " + crawlerId,
       watcher_user: "crawler " + crawlerId,
-      url: contactUrl, // Utilise l'URL avec steamID64
-      watch_user: await scapName(contactUrl),
-      ban: await scapBan(contactUrl),
+      url: steamId64Url, // Utilise l'URL avec steamID64 pour l'insertion
+      watch_user: await scapName(steamId64Url),
+      ban: await scapBan(steamId64Url),
       status: "pending", // Le profil est en attente d'être crawlé
     },
   ]);
@@ -143,7 +133,7 @@ async function addContact(contactUrl) {
     );
   } else {
     console.log(
-      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[42m\x1b[1m${contactUrl}\x1b[0m successfully added.`
+      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[42m\x1b[1m${steamId64Url}\x1b[0m successfully added.`
     );
   }
 }
@@ -178,10 +168,7 @@ async function fetchSteamFriends(profileUrl) {
 async function crawlSteamProfile(startUrl = null) {
   // Si un profil de démarrage est fourni, ajouter ce profil dans la base de données s'il n'existe pas
   if (startUrl) {
-    const normalizedProfileUrl = await convertToSteamId64(startUrl);
-    if (normalizedProfileUrl) {
-      await addContact(normalizedProfileUrl); // Ajouter le profil de départ à la base de données
-    }
+    await addContact(startUrl); // Ajouter le profil de départ à la base de données
   }
 
   const profileUrl = startUrl || (await getNextProfile());
@@ -202,23 +189,13 @@ async function crawlSteamProfile(startUrl = null) {
   // Ajouter le profil visité à l'ensemble
   visitedProfiles.add(profileUrl);
 
-  // Convertir l'URL en steamID64 si nécessaire
-  const normalizedProfileUrl = await convertToSteamId64(profileUrl);
-  if (!normalizedProfileUrl) {
-    console.error(
-      "\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31m\x1b[1mUnable to convert URL to steamID64.\x1b[0m"
-    );
-    return;
-  }
-
   // Récupérer les contacts depuis la page /friends/
-  const contacts = await fetchSteamFriends(normalizedProfileUrl);
+  const contacts = await fetchSteamFriends(profileUrl);
 
   for (const contactUrl of contacts) {
-    const normalizedContactUrl = await convertToSteamId64(contactUrl); // Convertir les URLs des contacts également
-    await addContact(normalizedContactUrl);
+    await addContact(contactUrl); // Ajouter les contacts récursivement
 
-    // Récursivement crawler les contacts des contacts sans limite de profondeur
+    // Crawler récursivement les contacts des contacts sans limite de profondeur
     await crawlSteamProfile(contactUrl);
   }
 
@@ -226,5 +203,24 @@ async function crawlSteamProfile(startUrl = null) {
   await markProfileAsDone(profileUrl);
 }
 
+// Fonction pour marquer un profil comme terminé
+async function markProfileAsDone(profileUrl) {
+  const { error } = await supabase
+    .from("profil")
+    .update({ status: "done" })
+    .eq("url", profileUrl);
+
+  if (error) {
+    console.error(
+      "\x1b[41m\x1b[1mERROR\x1b[0m: when updating the profile status to 'done': ",
+      error
+    );
+  } else {
+    console.log(
+      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[45m\x1b[1m${profileUrl}\x1b[0m marked as completed.`
+    );
+  }
+}
+
 // Lancer le crawler avec le profil de démarrage spécifié
-crawlSteamProfile(process.env.CRAWLER_SEED);
+crawlSteamProfile();
