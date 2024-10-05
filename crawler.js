@@ -13,6 +13,10 @@ const supabase = createClient(
 // Ta clé d'API Steam
 const steamApiKey = process.env.STEAM_API;
 
+// Crawler ID
+
+const crawlerId = "1";
+
 // Ensemble pour garder une trace des profils déjà visités
 const visitedProfiles = new Set();
 
@@ -53,8 +57,7 @@ async function addContact(contactUrl) {
 
   if (existingContact.length > 0) {
     console.log(
-      `
-\x1b[45m\x1b[1mCRAWLER:\x1b[0m The contact \x1b[33m\x1b[1m${contactUrl}\x1b[0m is already in the database.`
+      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[43m\x1b[1m${contactUrl}\x1b[0m is already in the database.`
     );
     return;
   }
@@ -62,8 +65,8 @@ async function addContact(contactUrl) {
   // Ajouter le contact dans la table "profil" s'il n'existe pas
   const { data, error } = await supabase.from("profil").insert([
     {
-      id_server: "crawler",
-      watcher_user: "crawler",
+      id_server: "crawler " + crawlerId,
+      watcher_user: "crawler " + crawlerId,
       url: contactUrl, // Utilise l'URL avec steamID64
       watch_user: await scapName(contactUrl),
       ban: await scapBan(contactUrl),
@@ -72,13 +75,12 @@ async function addContact(contactUrl) {
 
   if (error) {
     console.error(
-      "\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mError during database insertion :\x1b[0m",
+      "\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31m\x1b[1mError during database insertion :\x1b[0m",
       error
     );
   } else {
     console.log(
-      `
-\x1b[45m\x1b[1mCRAWLER:\x1b[0m Contact \x1b[42m\x1b[1m${contactUrl}\x1b[0m successfully added.`
+      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[42m\x1b[1m${contactUrl}\x1b[0m successfully added.`
     );
   }
 }
@@ -103,8 +105,7 @@ async function fetchSteamFriends(profileUrl) {
     return contacts;
   } catch (error) {
     console.error(
-      `
-\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mError retrieving Steam friends page :\x1b[31\x1b[0m ${error.message}`
+      `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31m\x1b[1mretrieving Steam friends page :\x1b[31\x1b[0m ${error.message}`
     );
     return [];
   }
@@ -115,8 +116,7 @@ async function crawlSteamProfile(profileUrl) {
   // Vérifier si le profil a déjà été visité pour éviter les boucles infinies
   if (visitedProfiles.has(profileUrl)) {
     console.log(
-      `
-\x1b[45m\x1b[1mCRAWLER:\x1b[0m profile \x1b[33m\x1b[1m${profileUrl}\x1b[0m has already been visited. `
+      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[33m\x1b[1m${profileUrl}\x1b[0m has already been visited. `
     );
     return;
   }
@@ -128,7 +128,7 @@ async function crawlSteamProfile(profileUrl) {
   const normalizedProfileUrl = await convertToSteamId64(profileUrl);
   if (!normalizedProfileUrl) {
     console.error(
-      "\x1b[45m\x1b[1mCRAWLER:\x1b[0m \x1b[31m\x1b[1mUnable to convert URL to steamID64.\x1b[0m"
+      "\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31m\x1b[1mUnable to convert URL to steamID64.\x1b[0m"
     );
     return;
   }
@@ -146,4 +146,4 @@ async function crawlSteamProfile(profileUrl) {
 }
 
 // Lancer le crawler
-crawlSteamProfile(process.env.CRAWLER_SEED);
+crawlSteamProfile(process.env.CRAWLER_SEED_3);
