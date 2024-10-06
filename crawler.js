@@ -170,8 +170,10 @@ async function crawlSteamProfile(startUrl = null) {
   if (startUrl) {
     await addContact(startUrl); // Ajouter le profil de départ à la base de données
   }
-
+  
+  // a optimisé /!\
   const profileUrl = startUrl || (await getNextProfile());
+
 
   if (!profileUrl) {
     console.log("\x1b[41m\x1b[1mERROR\x1b[0m: No profile available to crawl.");
@@ -204,6 +206,7 @@ async function crawlSteamProfile(startUrl = null) {
 }
 
 // Fonction pour marquer un profil comme terminé
+// a verifié /!\
 async function markProfileAsDone(profileUrl) {
   const { error } = await supabase
     .from("profil")
@@ -222,5 +225,5 @@ async function markProfileAsDone(profileUrl) {
   }
 }
 
-// Lancer le crawler avec le profil de démarrage spécifié
+// Lancer le crawler avec le profil de démarrage spécifié si besion
 crawlSteamProfile();
