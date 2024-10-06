@@ -54,7 +54,8 @@ CREATE TABLE profil (
     watcher_user TEXT,
     url VARCHAR,
     watch_user TEXT,
-    ban BOOLEAN NOT NULL DEFAULT FALSE
+    ban BOOLEAN NOT NULL DEFAULT FALSE,
+    status TEXT
 );
 
 CREATE TABLE discord (
