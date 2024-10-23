@@ -195,9 +195,7 @@ async function crawlProfile(profileUrl) {
   const contacts = await fetchSteamFriends(profileUrl);
 
   // Ajouter les contacts à la base de données
-  for (const contactUrl of contacts) {
-    await addContact(contactUrl);
-  }
+  await Promise.all(contacts.map((contactUrl) => addContact(contactUrl)));
 
   // Marquer le profil comme terminé
   await markProfileAsDone(profileUrl);
