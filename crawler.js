@@ -46,15 +46,15 @@ async function fetchSteamFriends(profileUrl) {
     const { data: html } = await axios.get(friendsUrl);
     const $ = cheerio.load(html);
 
-    const contacts = [];
+    const contacts = new Set();
     $(".selectable_overlay").each((index, element) => {
       const contactUrl = $(element).attr("href");
       if (contactUrl) {
-        contacts.push(contactUrl);
+        contacts.add(contactUrl);
       }
     });
 
-    return contacts;
+    return Array.from(contacts);
   } catch (error) {
     console.error(
       "\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31mError retrieving Steam friends page:\x1b[31\x1b[0m " +
