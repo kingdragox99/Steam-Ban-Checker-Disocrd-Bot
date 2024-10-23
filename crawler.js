@@ -122,6 +122,12 @@ async function addContact(contactUrl) {
       const { data: html } = await axios.get(steamId64Url);
       const $ = cheerio.load(html);
       const banInfoText = $(".profile_ban_status").text();
+      if (banInfoText.includes("Currently trade banned")) {
+        console.log(
+          `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[43m\x1b[1m${steamId64Url}\x1b[0m is currently trade banned. Skipping.`
+        );
+        return;
+      }
       const match = banInfoText.match(/(\d+) day\(s\) since last ban/);
       if (match) {
         const daysSinceBan = parseInt(match[1], 10);
