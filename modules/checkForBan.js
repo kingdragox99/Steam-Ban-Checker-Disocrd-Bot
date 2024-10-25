@@ -9,11 +9,12 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-const fetchBans = async () => {
+const fetchBans = async (from = 0, limit = 1000) => {
   const { data: bans, error } = await supabase
     .from("profil")
     .select("*")
-    .eq("ban", false);
+    .eq("ban", false)
+    .range(from, from + limit - 1);
 
   if (error) {
     console.error("Error fetching bans:", error.message);
@@ -36,9 +37,13 @@ const fetchChannels = async () => {
 };
 
 const updateBanStatus = async (url) => {
+  const currentDate = new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace("Z", "");
   const { error } = await supabase
     .from("profil")
-    .update({ ban: true })
+    .update({ ban: true, ban_date: currentDate })
     .eq("url", url);
 
   if (error) {
@@ -47,34 +52,60 @@ const updateBanStatus = async (url) => {
 };
 
 const notifyChannels = async (channels, message) => {
-  for (const channel of channels) {
-    await client.channels.cache.get(channel.output).send({
-      content: message,
-    });
-  }
+  await Promise.all(
+    channels.map((channel) => {
+      const channelInstance = client.channels.cache.get(channel.output);
+      if (channelInstance) {
+        return channelInstance.send({
+          content: message,
+        });
+      } else {
+        console.error(`Error: Channel with ID ${channel.output} not found.`);
+      }
+    })
+  );
 };
 
 const checkForBan = async () => {
-  const bans = await fetchBans();
+  console.log("\x1b[41m\x1b[1mBOT:\x1b[0m Checking for new bans...");
+  let from = 0;
+  const limit = 1000;
+  let bans;
   const channels = await fetchChannels();
 
-  console.log(`\x1b[41m\x1b[1mBOT:\x1b[0m Check for new bans\x1b[0m`);
-
-  if (!bans || !channels) return; // Sortie si aucune donnée
-
-  for (const data of bans) {
-    if (await scapBan(data.url)) {
-      console.log(
-        `\x1b[41m\x1b[1mBOT:\x1b[0m A ban was detected \x1b[45m\x1b[1m\x1b[31m${data.url}\x1b[0m`
-      );
-
-      const message =
-        languageSeter(channels[0]?.lang || "en_EN").response_ban +
-        ` ${data.url}`;
-      await notifyChannels(channels, message);
-      await updateBanStatus(data.url);
-    }
+  if (!channels || channels.length === 0) {
+    console.error("Error: No channels found. Exiting ban check.");
+    return;
   }
+
+  do {
+    bans = await fetchBans(from, limit);
+
+    await Promise.all(
+      bans.map(async (data) => {
+        try {
+          if (await scapBan(data.url)) {
+            console.log(
+              `\x1b[41m\x1b[1mBOT:\x1b[0m A cheater was detected: \x1b[1m\x1b[32m${data.url}[0m`
+            );
+
+            const message =
+              languageSeter(channels[0]?.lang || "en_EN").response_ban +
+              ` ${data.url}`;
+            await notifyChannels(channels, message);
+            await updateBanStatus(data.url);
+          }
+        } catch (error) {
+          console.error(
+            `Error processing ban for URL ${data.url}:`,
+            error.message
+          );
+        }
+      })
+    );
+
+    from += limit;
+  } while (bans && bans.length > 0);
 };
 
 module.exports = checkForBan;
