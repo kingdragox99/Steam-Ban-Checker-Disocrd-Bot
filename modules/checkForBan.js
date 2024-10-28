@@ -119,8 +119,8 @@ const checkForBan = async () => {
 
   // Initialiser Bottleneck pour limiter le nombre de requêtes concurrentes
   const limiter = new Bottleneck({
-    maxConcurrent: 10,
-    minTime: 100, // 100 ms entre chaque requête pour éviter le rate limit
+    maxConcurrent: 20,
+    minTime: 25, // 100 ms entre chaque requête pour éviter le rate limit
   });
 
   do {
