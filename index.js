@@ -75,7 +75,7 @@ client.on("messageCreate", async (message) => {
     await retryOperation(async () => {
       return await supabase.from("profil").insert({
         url: message.content,
-        watch_user: await scapName(message.content),
+        steam_name: await scapName(message.content),
         ban: await scapBan(message.content),
       });
     });

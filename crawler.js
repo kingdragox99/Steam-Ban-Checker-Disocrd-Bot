@@ -3,6 +3,7 @@ const cheerio = require("cheerio");
 const { createClient } = require("@supabase/supabase-js");
 const scapBan = require("./modules/scapBan.js");
 const scapName = require("./modules/scapName.js");
+const scrapBanType = require("./modules/scrapBanType.js");
 const Bottleneck = require("bottleneck");
 require("dotenv").config();
 
@@ -118,6 +119,7 @@ async function addContact(contactUrl) {
 
   const banStatus = await scapBan(steamId64Url);
   let banDate = null;
+  let banType = null;
   if (banStatus) {
     try {
       const { data: html } = await axios.get(steamId64Url);
@@ -136,6 +138,7 @@ async function addContact(contactUrl) {
           Date.now() - daysSinceBan * 24 * 60 * 60 * 1000
         ).toISOString();
       }
+      banType = await scrapBanType(steamId64Url);
     } catch (error) {
       console.error(
         `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31mError retrieving ban information:\x1b[31\x1b[0m ${error.message}`
@@ -165,9 +168,10 @@ async function addContact(contactUrl) {
   const { error: insertError } = await supabase.from("profil").insert([
     {
       url: steamId64Url,
-      watch_user: await scapName(steamId64Url),
+      steam_name: await scapName(steamId64Url),
       ban: banStatus,
       ban_date: banDate,
+      ban_type: banType,
       status: "pending",
     },
   ]);
