@@ -15,7 +15,7 @@ async function getSteamBanType(steamUrl) {
     } else if (banType.includes("trade ban")) {
       return "trade ban";
     } else {
-      return "No ban type found";
+      return "Unban";
     }
   } catch (error) {
     console.error("Error while fetching Steam profile information:", error);

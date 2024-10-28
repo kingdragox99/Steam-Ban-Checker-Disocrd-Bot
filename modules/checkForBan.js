@@ -1,6 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const client = require("../modules/initBot.js");
 const scapBan = require("../modules/scapBan.js");
+const scrapBanType = require("./modules/scrapBanType.js");
 const languageSeter = require("../modules/languageSeter.js");
 const Bottleneck = require("bottleneck");
 const pino = require("pino");
@@ -68,14 +69,14 @@ const fetchChannels = async () => {
   return channels;
 };
 
-const updateBanStatus = async (url) => {
+const updateBanStatus = async (url, banType) => {
   const currentDate = new Date()
     .toISOString()
     .replace("T", " ")
     .replace("Z", "");
   const { error } = await supabase
     .from("profil")
-    .update({ ban: true, ban_date: currentDate })
+    .update({ ban: true, ban_date: currentDate, ban_type: banType })
     .eq("url", url);
 
   if (error) {
@@ -140,12 +141,13 @@ const checkForBan = async () => {
             if (await scapBan(data.url)) {
               logger.info(`BOT: A ban was detected: ${data.url}`);
 
+              const banType = await scrapBanType(data.url);
               const message =
                 languageSeter(channels[0]?.lang || "en_EN").response_ban +
                 ` ${data.url}`;
               logger.debug(`Notifying channels about ban for URL: ${data.url}`);
               await notifyChannels(channels, message);
-              const success = await updateBanStatus(data.url);
+              const success = await updateBanStatus(data.url, banType);
               if (!success) {
                 logger.error(
                   `Failed to update ban status for URL: ${data.url}`
