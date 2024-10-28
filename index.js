@@ -8,6 +8,8 @@ const setupBot = require("./modules/setupBot.js");
 const languageChanger = require("./modules/languageChanger.js");
 const languageChecker = require("./modules/languageChecker.js");
 const languageSeter = require("./modules/languageSeter.js");
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
 
 console.log(
   "\x1b[41m\x1b[1mBOT:\x1b[0m This \x1b[31m\x1b[1mBOT\x1b[0m was made with Love by \x1b[41m\x1b[1mDragolelele\x1b[0m"
@@ -15,27 +17,39 @@ console.log(
 
 scheduleStart(); // Start daily task
 
-////////////////////////////////////WIP SUPABASE//////////////////////////////////////////////////////////////////
-const { createClient } = require("@supabase/supabase-js");
-require("dotenv").config();
-
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
-const test = async () => {
-  const { data, error } = await supabase.from("discord").select();
+
+// Test connection to Supabase
+(async () => {
+  const { error } = await supabase.from("profil").select("id").limit(1);
   if (error) {
-    console.log(error);
+    console.error("Failed to connect to Supabase: ", error);
   } else {
     console.log(
-      "\x1b[41m\x1b[1mBOT:\x1b[0m \x1b[1m\x1b[32mSupabase\x1b[0m is connected"
+      "\x1b[41m\x1b[1mBOT:\x1b[0m \x1b[32mSuccessfully connected to Supabase database.\x1b[0m"
     );
   }
-};
+})();
 
-test();
-////////////////////////////////////WIP SUPABASE//////////////////////////////////////////////////////////////////
+// Utility function for retry logic
+async function retryOperation(operation, maxAttempts = 3) {
+  let attempt = 0;
+  while (attempt < maxAttempts) {
+    const result = await operation();
+    if (!result.error) {
+      return result;
+    }
+    console.log(`Attempt ${attempt + 1} failed:`, result.error);
+    attempt++;
+  }
+  console.error(
+    "Failed to complete operation after multiple attempts. Please check the connection or data consistency."
+  );
+  return { error: true };
+}
 
 // Get new message
 client.on("messageCreate", async (message) => {
@@ -56,16 +70,15 @@ client.on("messageCreate", async (message) => {
         message.content
       }`
     );
-    // Push a new user in db
 
-    const { error } = await supabase.from("profil").insert({
-      id_server: message.guildId,
-      watcher_user: message.author.username,
-      url: message.content,
-      watch_user: await scapName(message.content),
-      ban: await scapBan(message.content),
+    // Push a new user in db with retry logic
+    await retryOperation(async () => {
+      return await supabase.from("profil").insert({
+        url: message.content,
+        watch_user: await scapName(message.content),
+        ban: await scapBan(message.content),
+      });
     });
-    if (error) console.log(error);
 
     // Delete user message
     message.delete(message.id);
@@ -106,22 +119,29 @@ client.on("messageCreate", async (message) => {
 
   // Change lang command
   if (message.content.startsWith("!setup lang")) {
-    switch (message.content.toLowerCase()) {
-      case `${languageSeter("command").command_lang_fr}`: // Command bot French
-        languageChanger(message.guildId, "fr_FR");
-        message.channel.send(`${languageSeter("command").text_lang_fr}`);
-        break;
-      case `${languageSeter("command").command_lang_en}`: // Command bot English
-        languageChanger(message.guildId, "en_EN");
-        message.channel.send(`${languageSeter("command").text_lang_en}`);
-        break;
-      case `${languageSeter("command").command_lang_es}`: // Command bot Spanish
-        languageChanger(message.guildId, "es_ES");
-        message.channel.send(`${languageSeter("command").text_lang_es}`);
-        break;
-      default:
-        languageChanger(message.guildId, "en_EN");
-        message.channel.send(`${languageSeter("command").text_lang_error}`);
+    const langCommands = {
+      [languageSeter("command").command_lang_fr]: {
+        lang: "fr_FR",
+        response: languageSeter("command").text_lang_fr,
+      },
+      [languageSeter("command").command_lang_en]: {
+        lang: "en_EN",
+        response: languageSeter("command").text_lang_en,
+      },
+      [languageSeter("command").command_lang_es]: {
+        lang: "es_ES",
+        response: languageSeter("command").text_lang_es,
+      },
+    };
+
+    const langOption = langCommands[message.content.toLowerCase()];
+
+    if (langOption) {
+      languageChanger(message.guildId, langOption.lang);
+      message.channel.send(langOption.response);
+    } else {
+      languageChanger(message.guildId, "en_EN");
+      message.channel.send(`${languageSeter("command").text_lang_error}`);
     }
   }
 

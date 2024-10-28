@@ -164,8 +164,6 @@ async function addContact(contactUrl) {
 
   const { error: insertError } = await supabase.from("profil").insert([
     {
-      id_server: "crawler",
-      watcher_user: "crawler",
       url: steamId64Url,
       watch_user: await scapName(steamId64Url),
       ban: banStatus,
