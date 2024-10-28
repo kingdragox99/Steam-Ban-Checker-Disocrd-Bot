@@ -86,7 +86,7 @@ const checkForBan = async () => {
         try {
           if (await scapBan(data.url)) {
             console.log(
-              `\x1b[41m\x1b[1mBOT:\x1b[0m A cheater was detected: \x1b[1m\x1b[32m${data.url}[0m`
+              `\x1b[41m\x1b[1mBOT:\x1b[0m A cheater was detected: \x1b[1m\x1b[32m${data.url}\x1b[0m`
             );
 
             const message =
