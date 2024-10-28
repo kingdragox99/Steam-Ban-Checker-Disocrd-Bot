@@ -4,7 +4,7 @@ const checkForBan = require("../modules/checkForBan.js");
 // Create a schedule, perform tasks every 1 minute
 const scheduleStart = () => {
   var schedule = new CronJob(
-    "*/15 * * * *",
+    "*/30 * * * *",
     async function () {
       checkForBan();
     },

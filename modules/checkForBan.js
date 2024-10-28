@@ -10,6 +10,7 @@ const supabase = createClient(
 );
 
 const fetchBans = async (from = 0, limit = 1000) => {
+  console.log(`[DEBUG] Fetching bans from ${from} to ${from + limit - 1}`);
   const { data: bans, error } = await supabase
     .from("profil")
     .select("*")
@@ -18,9 +19,10 @@ const fetchBans = async (from = 0, limit = 1000) => {
 
   if (error) {
     console.error("Error fetching bans:", error.message);
+    return []; // Return an empty array to avoid null issues
   }
 
-  return bans;
+  return bans || []; // Ensure bans is always an array
 };
 
 const fetchChannels = async () => {
@@ -81,12 +83,17 @@ const checkForBan = async () => {
   do {
     bans = await fetchBans(from, limit);
 
+    if (!bans || bans.length === 0) {
+      console.log("[DEBUG] No more bans to process, exiting...");
+      break;
+    }
+
     await Promise.all(
       bans.map(async (data) => {
         try {
           if (await scapBan(data.url)) {
             console.log(
-              `\x1b[41m\x1b[1mBOT:\x1b[0m A cheater was detected: \x1b[1m\x1b[32m${data.url}\x1b[0m`
+              `\x1b[41m\x1b[1mBOT:\x1b[0m A ban was detected: ${data.url}`
             );
 
             const message =
