@@ -1,7 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const client = require("../modules/initBot.js");
 const scapBan = require("../modules/scapBan.js");
-const scrapBanType = require("./modules/scrapBanType.js");
+const scrapBanType = require("../modules/scrapBanType.js");
 const languageSeter = require("../modules/languageSeter.js");
 const Bottleneck = require("bottleneck");
 const pino = require("pino");
