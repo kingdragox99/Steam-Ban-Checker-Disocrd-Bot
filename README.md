@@ -1,16 +1,22 @@
-﻿# Steam Ban Checker Discord Bot
+﻿# STEAM BAN TRACKER
 
-this bot will check if a user has been monitored vac ban or ow ban
+Steam Ban Tracker consists of 3 things: a crawler that seeks to find as many Steam profiles as possible, a discord bot that allows users to monitor players they find suspicious, and a verification mechanism that checks whether a profile in the database has just been banned.
 
 WIP project please report bug and crash
 
+You can found data visualisation here : [SBT Web UI](https://steam-ban-tracker-web-ui.vercel.app/)
+
+[SBT Web UI Github](https://github.com/kingdragox99/STEAM-BAN-TRACKER-WEB-UI)
+
 ## Installation
 
-Install Steam-Ban-Checker-Discord-Bot with yarn
+Please read everything! !
+
+You need to make an account / logging and get an API key on site bellow
 
 [Discord API](https://discord.com/developers/applications)
 
-[SUPA BASE](https://www.supabase.com/)
+[SUPABASE](https://www.supabase.com/)
 
 [Steam API Key](https://steamcommunity.com/dev/apikey)
 
@@ -27,7 +33,7 @@ After putting that in console
   sudo apt install npm
   sudo npm install --global yarn
   screen -S ban-watch
-  git clone https://github.com/kingdragox99/Steam-Ban-Checker-Discord-Bot.git
+  git clone https://github.com/kingdragox99/STEAM-BAN-TRACKER.git
   cd Steam-Ban-Checker-Discord-Bot
   cat .env
   nano .env <---- /!\ and add .env step with your api key /!\
@@ -40,9 +46,10 @@ Create a .env in the file "Steam-Ban-Checker-Discord-Bot" with
 ```bash
 SUPABASE_URL = "SUPA BASE API URL"
 SUPABASE_KEY = "SUPA BASE API KEY"
-CLIENT_TOKEN = "=DISCORD BOT API KEY"
+CLIENT_TOKEN = "DISCORD BOT API KEY"
 STEAM_API = "STEAM API KEY"
 CRAWLER_SEED = "https://steamcommunity.com/id/El_Papite/" <- steam profile url
+LOG_LEVEL = "debug"
 ```
 
 Structure de la db supabase
@@ -50,12 +57,12 @@ Structure de la db supabase
 ```sql
 CREATE TABLE profil (
     id SERIAL PRIMARY KEY,
-    id_server TEXT,
-    watcher_user TEXT,
-    url VARCHAR,
-    watch_user TEXT,
-    ban BOOLEAN NOT NULL DEFAULT FALSE,
     status TEXT
+    url VARCHAR,
+    steam_name TEXT,
+    ban BOOLEAN NOT NULL DEFAULT FALSE,
+    ban_type TEXT
+    ban_date TIMESTAMP
 );
 
 CREATE TABLE discord (
