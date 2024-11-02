@@ -113,16 +113,15 @@ const checkForBan = async () => {
   let bans;
   const channels = await fetchChannels();
 
+  const limiter = new Bottleneck({
+    maxConcurrent: 20,
+    minTime: 25,
+  });
+
   if (!channels || channels.length === 0) {
     logger.error("Error: No channels found. Exiting ban check.");
     return;
   }
-
-  // Initialiser Bottleneck pour limiter le nombre de requêtes concurrentes
-  const limiter = new Bottleneck({
-    maxConcurrent: 20,
-    minTime: 25, // 100 ms entre chaque requête pour éviter le rate limit
-  });
 
   do {
     logger.debug(`Fetching bans starting from index ${from}`);
