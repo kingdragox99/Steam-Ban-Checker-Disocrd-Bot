@@ -13,15 +13,15 @@ const supabase = createClient(
 );
 
 const limiter = new Bottleneck({
-  maxConcurrent: 5,
-  minTime: 200,
+  maxConcurrent: 10,
+  minTime: 100,
 });
 
 // Fonction pour convertir les URLs personnalisées Steam en URLs avec steamID64
 async function convertToSteamId64(profileUrl) {
   if (profileUrl.includes("/id/")) {
     const vanityUrl = profileUrl.split("/id/")[1].replace("/", "");
-    const apiUrl = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${process.env.STEAM_API}&vanityurl=${vanityUrl}`;
+    const apiUrl = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${process.env.STEAM_API_RESCUE}&vanityurl=${vanityUrl}`;
 
     try {
       const response = await axios.get(apiUrl);
