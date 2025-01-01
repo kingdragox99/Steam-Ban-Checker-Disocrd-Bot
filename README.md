@@ -54,7 +54,7 @@ SUPABASE_KEY = "SUPA BASE API KEY"
 CLIENT_TOKEN = "DISCORD BOT API KEY"
 STEAM_API = "STEAM API KEY"
 CRAWLER_SEED = "https://steamcommunity.com/id/El_Papite/" # Steam profile URL
-LOG_LEVEL = "debug"
+DEBUG = false or true
 ```
 
 Supabase database structure
