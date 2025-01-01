@@ -1,24 +1,34 @@
 {
   "name": "steam-ban-tracker",
   "main": "index.js",
-  "version": "BETA 2.0",
+  "version": "BETA 3.0",
   "author": "Dragolelele",
   "license": "MIT",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "crawler": "node crawler.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
   },
   "dependencies": {
+    "@discordjs/builders": "^1.7.0",
+    "@discordjs/rest": "^2.2.0",
     "@supabase/supabase-js": "^2.45.4",
-    "axios": "^1.3.4",
+    "axios": "^1.6.7",
     "bottleneck": "^2.19.5",
     "cheerio": "^1.0.0-rc.12",
-    "cron": "^2.3.0",
-    "discord.js": "^14.16.2",
-    "dotenv": "^16.1.1",
+    "cron": "^3.1.6",
+    "discord-api-types": "^0.37.67",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "node-schedule": "^2.1.1",
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0"
+  },
+  "engines": {
+    "node": ">=16.x",
+    "npm": ">=7.x"
   }
 }

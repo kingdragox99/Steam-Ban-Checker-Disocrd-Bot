@@ -1,171 +1,197 @@
-const { createClient } = require("@supabase/supabase-js");
-const client = require("../modules/initBot.js");
-const scapBan = require("../modules/scapBan.js");
-const scrapBanType = require("../modules/scrapBanType.js");
-const languageSeter = require("../modules/languageSeter.js");
+const { supabase } = require("./supabBaseConnect");
+const { scrapSteamProfile } = require("./steamScraper");
+const languageChecker = require("./languageChecker");
+const languageSeter = require("./languageSeter");
 const Bottleneck = require("bottleneck");
-const pino = require("pino");
-require("dotenv").config();
 
-const logger = pino({
-  level: process.env.LOG_LEVEL || "debug",
-  transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-    },
-  },
+// Configuration du limiteur de requêtes optimisé
+const limiter = new Bottleneck({
+  maxConcurrent: 100,
+  minTime: 10,
+  reservoir: 1000,
+  reservoirRefreshAmount: 1000,
+  reservoirRefreshInterval: 10 * 1000,
 });
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
-
-const fetchBans = async (from = 0, limit = 1000, retries = 3) => {
-  logger.debug(`Fetching bans from ${from} to ${from + limit - 1}`);
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const { data: bans, error } = await supabase
-        .from("profil")
-        .select("*")
-        .eq("ban", false)
-        .range(from, from + limit - 1);
-
-      if (error) {
-        throw error;
-      }
-
-      logger.debug(`Successfully fetched ${bans.length} bans.`);
-      return bans || []; // Ensure bans is always an array
-    } catch (error) {
-      logger.error(`Error fetching bans (attempt ${attempt}):`, error.message);
-      if (attempt === retries) {
-        logger.error("Max retries reached. Returning an empty array.");
-        return []; // Return an empty array to avoid null issues
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
-    }
-  }
+// Statistiques
+const stats = {
+  total: 0,
+  processed: 0,
+  newBans: 0,
+  errors: 0,
+  startTime: Date.now(),
+  lastUpdate: null,
 };
 
-const fetchChannels = async () => {
-  logger.debug("Fetching channels from the database...");
-  const { data: channels, error } = await supabase
-    .from("discord")
-    .select("*")
-    .gt("output", 1);
+// Fonction pour créer une barre de progression
+function createProgressBar(progress, size = 40) {
+  const filled = Math.round(progress * size);
+  const empty = size - filled;
+  const filledBar = "█".repeat(filled);
+  const emptyBar = "░".repeat(empty);
+  const percentage = Math.round(progress * 100);
+  return `${filledBar}${emptyBar} ${percentage}%`;
+}
 
-  if (error) {
-    logger.error("Error fetching channels:", error.message);
-  }
+// Fonction pour formater le temps
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds)) return "∞";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hours}h ${minutes}m ${secs}s`;
+}
 
-  if (channels) {
-    logger.debug(`Successfully fetched ${channels.length} channels.`);
-  } else {
-    logger.debug("No channels found.");
-  }
+// Fonction pour mettre à jour l'affichage
+function updateDisplay() {
+  const runTime = Math.floor((Date.now() - stats.startTime) / 1000);
+  const profilesPerSecond = stats.processed / runTime;
+  const remaining = stats.total - stats.processed;
+  const eta = Math.floor(remaining / profilesPerSecond);
+  const progress = stats.total > 0 ? stats.processed / stats.total : 0;
 
-  return channels;
-};
+  // Position le curseur en bas de l'écran
+  process.stdout.write("\x1b[0m\x1b[?25l"); // Cache le curseur
+  process.stdout.write("\x1b[s"); // Sauvegarde la position
+  process.stdout.write("\x1b[J"); // Efface jusqu'à la fin de l'écran
 
-const updateBanStatus = async (url, banType) => {
-  const currentDate = new Date()
-    .toISOString()
-    .replace("T", " ")
-    .replace("Z", "");
-  const { error } = await supabase
-    .from("profil")
-    .update({ ban: true, ban_date: currentDate, ban_type: banType })
-    .eq("url", url);
-
-  if (error) {
-    logger.error(`Error updating ban status for ${url}:`, error.message);
-    return false;
-  } else {
-    logger.debug(`Successfully updated ban status for ${url}`);
-    return true;
-  }
-};
-
-const notifyChannels = async (channels, message) => {
-  logger.debug("Notifying channels...");
-  await Promise.all(
-    channels.map((channel) => {
-      const channelInstance = client.channels.cache.get(channel.output);
-      if (channelInstance) {
-        logger.debug(`Sending message to channel ID: ${channel.output}`);
-        return channelInstance.send({
-          content: message,
-        });
-      } else {
-        logger.error(`Error: Channel with ID ${channel.output} not found.`);
-      }
-    })
+  // En-tête du daily check
+  console.log(
+    "\n\x1b[33m┌──" +
+      "─".repeat(30) +
+      " DAILY CHECK STATUS " +
+      "─".repeat(31) +
+      "┐\x1b[0m"
   );
-  logger.debug("All channels have been notified.");
-};
 
-const checkForBan = async () => {
-  logger.info("BOT: Checking for new bans...");
-  let from = 0;
-  const limit = 1000;
-  let bans;
-  const channels = await fetchChannels();
+  // Barre de progression
+  console.log(`\x1b[33m│\x1b[0m Progress: [${createProgressBar(progress)}]`);
 
-  if (!channels || channels.length === 0) {
-    logger.error("Error: No channels found. Exiting ban check.");
-    return;
+  // Statistiques sur une seule ligne
+  console.log(
+    `\x1b[33m│\x1b[0m Stats: ${stats.processed}/${stats.total} profiles | ` +
+      `New Bans: ${stats.newBans} | ` +
+      `Errors: ${stats.errors}`
+  );
+
+  // Performance sur une seule ligne
+  console.log(
+    `\x1b[33m│\x1b[0m Speed: ${profilesPerSecond.toFixed(2)}/s | ` +
+      `Runtime: ${formatTime(runTime)} | ` +
+      `ETA: ${formatTime(eta)}`
+  );
+
+  // Dernière mise à jour
+  if (stats.lastUpdate) {
+    console.log(`\x1b[33m│\x1b[0m Last Update: ${stats.lastUpdate}`);
   }
 
-  // Initialiser Bottleneck pour limiter le nombre de requêtes concurrentes
-  const limiter = new Bottleneck({
-    maxConcurrent: 20,
-    minTime: 25, // 100 ms entre chaque requête pour éviter le rate limit
-  });
+  console.log("\x1b[33m└" + "─".repeat(96) + "┘\x1b[0m");
 
-  do {
-    logger.debug(`Fetching bans starting from index ${from}`);
-    bans = await fetchBans(from, limit);
+  process.stdout.write("\x1b[u"); // Restaure la position
+  process.stdout.write("\x1b[?25h"); // Affiche le curseur
+}
 
-    if (!bans || bans.length === 0) {
-      logger.debug("No more bans to process, exiting...");
-      break;
+async function checkForBan() {
+  try {
+    console.log("\x1b[43m\x1b[1mINFO\x1b[0m: Starting ban check");
+
+    // Réinitialiser les statistiques
+    stats.startTime = Date.now();
+    stats.processed = 0;
+    stats.newBans = 0;
+    stats.errors = 0;
+    stats.lastUpdate = null;
+
+    // Récupérer tous les profils à vérifier
+    const { data: profiles, error } = await supabase.from("profil").select("*");
+    if (error) throw error;
+
+    stats.total = profiles.length;
+
+    // Récupérer tous les serveurs pour les notifications
+    const { data: servers } = await supabase.from("discord").select("*");
+    if (!servers || servers.length === 0) {
+      console.log("\x1b[43m\x1b[1mWARN\x1b[0m: No servers configured");
+      return;
     }
 
-    logger.debug(`Processing ${bans.length} bans...`);
-    await Promise.all(
-      bans.map((data) =>
-        limiter.schedule(async () => {
-          try {
-            if (await scapBan(data.url)) {
-              logger.info(`BOT: A ban was detected: ${data.url}`);
+    // Mettre à jour l'affichage toutes les secondes
+    const displayInterval = setInterval(updateDisplay, 1000);
 
-              const banType = await scrapBanType(data.url);
-              const message =
-                languageSeter(channels[0]?.lang || "en_EN").response_ban +
-                ` ${data.url}`;
-              logger.debug(`Notifying channels about ban for URL: ${data.url}`);
-              await notifyChannels(channels, message);
-              const success = await updateBanStatus(data.url, banType);
-              if (!success) {
-                logger.error(
-                  `Failed to update ban status for URL: ${data.url}`
+    // Traiter les profils par lots
+    const batchSize = 100;
+    for (let i = 0; i < profiles.length; i += batchSize) {
+      const batch = profiles.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (profile) => {
+          try {
+            const profileData = await limiter.schedule(() =>
+              scrapSteamProfile(profile.url)
+            );
+            if (!profileData) return;
+
+            // Si le statut de ban a changé
+            if (profileData.banStatus !== profile.ban) {
+              stats.newBans++;
+              stats.lastUpdate = `${profile.url} → ${
+                profileData.banType || "unknown"
+              }`;
+
+              // Mettre à jour le profil dans la base de données
+              await supabase
+                .from("profil")
+                .update({
+                  ban: profileData.banStatus,
+                  ban_type: profileData.banType,
+                  ban_date: profileData.banDate,
+                  steam_name: profileData.name,
+                  last_checked: new Date().toISOString(),
+                })
+                .eq("url", profile.url);
+
+              // Envoyer des notifications à tous les serveurs configurés
+              for (const server of servers) {
+                if (!server.output) continue;
+
+                const langData = await languageChecker(server.id_server);
+                const lang = languageSeter(langData?.lang || "en_EN");
+
+                const channel = await client.channels.fetch(server.output);
+                if (!channel) continue;
+
+                await channel.send(
+                  `${lang.response_banned}\n` +
+                    `${profile.url}\n` +
+                    `${lang.response_name} ${profileData.name}\n` +
+                    `${lang.response_type} ${
+                      profileData.banType || "unknown"
+                    }\n` +
+                    `${lang.response_date} ${profileData.banDate || "unknown"}`
                 );
               }
             }
+
+            stats.processed++;
           } catch (error) {
-            logger.error(
-              `Error processing ban for URL ${data.url}:`,
+            stats.errors++;
+            console.error(
+              `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check profile ${profile.url}:`,
               error.message
             );
           }
         })
-      )
-    );
+      );
+    }
 
-    from += limit;
-  } while (bans && bans.length > 0);
+    clearInterval(displayInterval);
+    updateDisplay();
+    console.log("\x1b[42m\x1b[1mSUCCESS\x1b[0m: Ban check completed!");
+  } catch (error) {
+    console.error("\x1b[41m\x1b[1mERROR\x1b[0m: Ban check failed:", error);
+  }
+}
+
+module.exports = {
+  checkForBan,
 };
-
-module.exports = checkForBan;
