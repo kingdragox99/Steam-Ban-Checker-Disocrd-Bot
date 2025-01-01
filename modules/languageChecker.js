@@ -1,29 +1,19 @@
-const { createClient } = require("@supabase/supabase-js");
-require("dotenv").config();
+const supabase = require("./supabBaseConnect");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
-
-const langChecker = async (guildId) => {
+async function languageChecker(guildId) {
   try {
-    const { data, error } = await supabase
-      .from("discord")
-      .select("*")
-      .eq("id_server", guildId)
-      .single(); // Récupérer une seule ligne
+    const { data: server } = await supabase.select("server", "*", {
+      where: { guild_id: guildId },
+    });
 
-    // Gestion des erreurs
-    if (error && error.code !== "PGRST116") {
-      throw new Error(`Error fetching server: ${error.message}`);
-    }
-
-    return data || null; // Retourne les données ou null si non trouvé
-  } catch (err) {
-    console.error("Error:", err.message);
-    throw err; // Rejeter l'erreur pour un traitement plus haut dans la chaîne
+    return server?.[0] || null;
+  } catch (error) {
+    console.error(
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check server language:",
+      error
+    );
+    return null;
   }
-};
+}
 
-module.exports = langChecker;
+module.exports = languageChecker;

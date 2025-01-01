@@ -1,62 +1,92 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
-const { createClient } = require("@supabase/supabase-js");
-const scapBan = require("./modules/scapBan.js");
-const scapName = require("./modules/scapName.js");
-const scrapBanType = require("./modules/scrapBanType.js");
+const { scrapSteamProfile } = require("./modules/steamScraper");
+const supabase = require("./modules/supabBaseConnect");
 const Bottleneck = require("bottleneck");
 require("dotenv").config();
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// Cache pour les profils déjà traités
+const processedProfiles = new Set();
+// Cache pour les erreurs 403
+const rateLimitCache = new Map();
 
-// Initialiser Bottleneck pour limiter le nombre de requêtes concurrentes
+// Configuration optimisée de Bottleneck
 const limiter = new Bottleneck({
-  maxConcurrent: 3,
-  minTime: 300, // 300 ms entre chaque requête pour éviter le rate limit
+  maxConcurrent: 4,
+  minTime: 1000,
+  reservoir: 50,
+  reservoirRefreshAmount: 50,
+  reservoirRefreshInterval: 60 * 1000,
 });
 
-// Fonction pour convertir les URLs personnalisées Steam en URLs avec steamID64
-async function convertToSteamId64(profileUrl) {
-  if (profileUrl.includes("/id/")) {
-    const vanityUrl = profileUrl.split("/id/")[1].replace("/", "");
-    const apiUrl = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${process.env.STEAM_API_RESCUE}&vanityurl=${vanityUrl}`;
-
+// Fonction de retry optimisée
+const retryWithBackoff = async (fn, retries = 2, baseDelay = 3000) => {
+  for (let i = 0; i < retries; i++) {
     try {
-      const response = await axios.get(apiUrl);
-      const data = response.data;
-
-      if (data.response.success === 1) {
-        const steamId64 = data.response.steamid;
-        return `https://steamcommunity.com/profiles/${steamId64}/`;
-      } else {
-        console.error(`\x1b[41m\x1b[1mERROR\x1b[0m: ${data.response.message}`);
-        return null;
-      }
+      return await fn();
     } catch (error) {
-      console.error(
-        `\x1b[41m\x1b[1mERROR\x1b[0m: when requesting the Steam API: ${error.message}`
-      );
-      return null;
+      if (error.response?.status === 403) {
+        const delay = baseDelay * Math.pow(2, i);
+        console.log(
+          `\x1b[43m\x1b[1mRETRY\x1b[0m: Waiting ${
+            delay / 1000
+          }s before next attempt...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
     }
-  } else {
-    return profileUrl;
+  }
+  throw new Error("Maximum retry attempts reached");
+};
+
+// Fonction optimisée pour les requêtes HTTP
+async function makeRequest(url, options = {}) {
+  const lastError = rateLimitCache.get(url);
+  if (lastError && Date.now() - lastError < 180000) {
+    console.log(`\x1b[43m\x1b[1mSKIP\x1b[0m: URL in cooldown: ${url}`);
+    return null;
+  }
+
+  try {
+    const response = await retryWithBackoff(() =>
+      limiter.schedule(() =>
+        axios.get(url, {
+          ...options,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            ...options.headers,
+          },
+          timeout: options.timeout || 5000,
+        })
+      )
+    );
+    return response;
+  } catch (error) {
+    if (error.response?.status === 403) {
+      rateLimitCache.set(url, Date.now());
+    }
+    throw error;
   }
 }
 
-// Fonction pour récupérer les contacts d'un profil Steam depuis la page /friends/
+// Fonction optimisée pour récupérer les amis
 async function fetchSteamFriends(profileUrl) {
   try {
     const friendsUrl = `${profileUrl}friends/`;
-    const { data: html } = await axios.get(friendsUrl);
-    const $ = cheerio.load(html);
+    const response = await makeRequest(friendsUrl);
+    if (!response) return [];
 
+    const $ = cheerio.load(response.data);
     const contacts = new Set();
-    $(".selectable_overlay").each((index, element) => {
+
+    $(".selectable_overlay").each((_, element) => {
       const contactUrl = $(element).attr("href");
-      if (contactUrl) {
+      if (contactUrl && !processedProfiles.has(contactUrl)) {
         contacts.add(contactUrl);
       }
     });
@@ -64,7 +94,8 @@ async function fetchSteamFriends(profileUrl) {
     return Array.from(contacts);
   } catch (error) {
     console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31mError retrieving Steam friends page:\x1b[31\x1b[0m ${error.message}`
+      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to fetch friends:`,
+      error.message
     );
     return [];
   }
@@ -72,171 +103,135 @@ async function fetchSteamFriends(profileUrl) {
 
 // Fonction pour obtenir le premier profil avec le statut 'pending'
 async function getFirstPendingProfile() {
-  const { data: pendingProfile, error } = await supabase
-    .from("profil")
-    .select("url")
-    .eq("status", "pending")
-    .limit(1);
+  try {
+    const { data: pendingProfile } = await supabase.select("profil", "*", {
+      where: { status: "pending" },
+      limit: 1,
+    });
 
-  if (error) {
+    if (!pendingProfile || pendingProfile.length === 0) {
+      console.log(`\x1b[43m\x1b[1mINFO\x1b[0m: No pending profiles found.`);
+      return null;
+    }
+
+    return pendingProfile[0].url;
+  } catch (error) {
     console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: when retrieving the pending profile: ${error.message}`
+      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to get pending profile:`,
+      error
     );
     return null;
   }
-
-  if (pendingProfile.length === 0) {
-    console.log(`\x1b[43m\x1b[1mUSER\x1b[0m: No pending profiles found.`);
-    return null;
-  }
-
-  return pendingProfile[0].url;
 }
 
 // Fonction pour marquer un profil comme "in progress"
 async function markProfileAsInProgress(profileUrl) {
-  const { error } = await supabase
-    .from("profil")
-    .update({ status: "in_progress" })
-    .eq("url", profileUrl);
-
-  if (error) {
+  try {
+    await supabase.update(
+      "profil",
+      { status: "in_progress" },
+      { url: profileUrl }
+    );
+  } catch (error) {
     console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: when marking the profile as in progress: ${error.message}`
+      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as in progress:`,
+      error
     );
   }
-}
-
-// Fonction pour ajouter un contact à la base de données dans la table "profil"
-async function addContact(contactUrl) {
-  const steamId64Url = await convertToSteamId64(contactUrl);
-  if (!steamId64Url) {
-    console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31mCould not convert ${contactUrl} to steamID64.\x1b[0m`
-    );
-    return;
-  }
-
-  const banStatus = await scapBan(steamId64Url);
-  let banDate = null;
-  let banType = null;
-  if (banStatus) {
-    try {
-      const { data: html } = await axios.get(steamId64Url);
-      const $ = cheerio.load(html);
-      const banInfoText = $(".profile_ban_status").text();
-      if (banInfoText.includes("Currently trade banned")) {
-        console.log(
-          `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[43m\x1b[1m${steamId64Url}\x1b[0m is currently trade banned. Skipping.`
-        );
-        return;
-      }
-      const match = banInfoText.match(/(\d+) day\(s\) since last ban/);
-      if (match) {
-        const daysSinceBan = parseInt(match[1], 10);
-        banDate = new Date(
-          Date.now() - daysSinceBan * 24 * 60 * 60 * 1000
-        ).toISOString();
-      }
-      banType = await scrapBanType(steamId64Url);
-    } catch (error) {
-      console.error(
-        `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31mError retrieving ban information:\x1b[31\x1b[0m ${error.message}`
-      );
-    }
-  }
-
-  const { data: existingContact, error: selectError } = await supabase
-    .from("profil")
-    .select("*")
-    .eq("url", steamId64Url);
-
-  if (selectError) {
-    console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31mError checking existing contact:\x1b[31\x1b[0m ${selectError.message}`
-    );
-    return;
-  }
-
-  if (existingContact.length > 0) {
-    console.log(
-      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[43m\x1b[1m${steamId64Url}\x1b[0m is already in the database.`
-    );
-    return;
-  }
-
-  const { error: insertError } = await supabase.from("profil").insert([
-    {
-      url: steamId64Url,
-      steam_name: await scapName(steamId64Url),
-      ban: banStatus,
-      ban_date: banDate,
-      ban_type: banType,
-      status: "pending",
-    },
-  ]);
-
-  if (insertError) {
-    console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: \x1b[31mError during database insertion:\x1b[0m ${insertError.message}`
-    );
-  } else {
-    console.log(
-      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[42m\x1b[1m${steamId64Url}\x1b[0m successfully added.`
-    );
-  }
-}
-
-// Fonction principale pour crawler un profil
-async function crawlProfile(profileUrl) {
-  // Marquer le profil comme 'in_progress'
-  await markProfileAsInProgress(profileUrl);
-
-  const contacts = await fetchSteamFriends(profileUrl);
-
-  // Ajouter les contacts à la base de données avec un throttling grâce à Bottleneck
-  await Promise.all(
-    contacts.map((contactUrl) => limiter.schedule(() => addContact(contactUrl)))
-  );
-
-  // Marquer le profil comme terminé
-  await markProfileAsDone(profileUrl);
-
-  // Recommencer avec le prochain profil en 'pending'
-  await crawlFirstPendingProfile();
-}
-
-// Fonction pour crawler le premier contact en `pending` ou le `startUrl` s'il est fourni
-async function crawlFirstPendingProfile(startUrl = null) {
-  const profileUrl = startUrl || (await getFirstPendingProfile());
-
-  if (!profileUrl) {
-    console.log(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: No pending profile available to crawl.`
-    );
-    return;
-  }
-
-  await crawlProfile(profileUrl);
 }
 
 // Fonction pour marquer un profil comme terminé
 async function markProfileAsDone(profileUrl) {
-  const { error } = await supabase
-    .from("profil")
-    .update({ status: "done" })
-    .eq("url", profileUrl);
-
-  if (error) {
-    console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: when marking the profile as done: ${error.message}`
-    );
-  } else {
+  try {
+    await supabase.update("profil", { status: "done" }, { url: profileUrl });
     console.log(
-      `\x1b[43m\x1b[1mUSER\x1b[0m: \x1b[45m\x1b[1m${profileUrl}\x1b[0m marked as completed.`
+      `\x1b[45m\x1b[1mCOMPLETE\x1b[0m: ${profileUrl} marked as completed`
+    );
+  } catch (error) {
+    console.error(
+      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as done:`,
+      error
     );
   }
 }
 
-// Lancer le crawler avec un profil de démarrage si fourni
+// Optimisation de l'ajout de contact
+async function addContact(contactUrl) {
+  if (processedProfiles.has(contactUrl)) return;
+  processedProfiles.add(contactUrl);
+
+  try {
+    // Vérifier si le profil existe déjà
+    const { data: existingProfile } = await supabase.select("profil", "*", {
+      where: { url: contactUrl },
+    });
+
+    if (existingProfile && existingProfile.length > 0) {
+      return;
+    }
+
+    // Récupérer les informations du profil
+    const profileData = await scrapSteamProfile(contactUrl);
+    if (!profileData) return;
+
+    // Insérer le nouveau profil
+    await supabase.insert("profil", {
+      url: contactUrl,
+      steam_name: profileData.name,
+      ban: profileData.banStatus,
+      ban_type: profileData.banType,
+      ban_date: profileData.banDate,
+      last_checked: profileData.lastChecked,
+      status: "pending",
+    });
+
+    console.log(
+      `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Added profile ${contactUrl}\n` +
+        `Name: ${profileData.name}\n` +
+        `Ban Status: ${profileData.banStatus}\n` +
+        `Ban Type: ${profileData.banType || "None"}\n` +
+        `Ban Date: ${profileData.banDate || "N/A"}`
+    );
+  } catch (error) {
+    console.error(`\x1b[41m\x1b[1mERROR\x1b[0m: Failed to add contact:`, error);
+  }
+}
+
+// Optimisation du traitement des profils
+async function crawlProfile(profileUrl) {
+  try {
+    await markProfileAsInProgress(profileUrl);
+    const contacts = await fetchSteamFriends(profileUrl);
+
+    // Traitement par lots de 5 contacts
+    const batchSize = 5;
+    for (let i = 0; i < contacts.length; i += batchSize) {
+      const batch = contacts.slice(i, i + batchSize);
+      await Promise.all(batch.map((contactUrl) => addContact(contactUrl)));
+    }
+
+    await markProfileAsDone(profileUrl);
+    await crawlFirstPendingProfile();
+  } catch (error) {
+    console.error(
+      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to crawl profile:`,
+      error
+    );
+  }
+}
+
+// Fonction principale pour démarrer le crawler
+async function crawlFirstPendingProfile(startUrl = null) {
+  const profileUrl = startUrl || (await getFirstPendingProfile());
+
+  if (!profileUrl) {
+    console.log(`\x1b[43m\x1b[1mINFO\x1b[0m: No profiles to crawl`);
+    return;
+  }
+
+  console.log(`\x1b[42m\x1b[1mSTART\x1b[0m: Starting to crawl ${profileUrl}`);
+  await crawlProfile(profileUrl);
+}
+
+// Lancer le crawler
 crawlFirstPendingProfile();

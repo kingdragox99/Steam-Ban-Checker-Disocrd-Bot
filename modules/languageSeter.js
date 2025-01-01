@@ -1,6 +1,14 @@
 const language = require("../lang/langs.js");
 
+// Cache pour les langues
+const langCache = new Map();
+
 const languageSeter = (data) => {
+  // Vérifier le cache d'abord
+  if (langCache.has(data)) {
+    return langCache.get(data);
+  }
+
   const langMap = {
     fr_FR: language.fr_FR,
     en_EN: language.en_EN,
@@ -8,7 +16,9 @@ const languageSeter = (data) => {
     command: language.command,
   };
 
-  return langMap[data] || en_EN; // Retourne la langue correspondante ou null si non trouvé
+  const result = langMap[data] || language.en_EN;
+  langCache.set(data, result);
+  return result;
 };
 
 module.exports = languageSeter;

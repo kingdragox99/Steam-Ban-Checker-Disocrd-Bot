@@ -1,28 +1,22 @@
-const { createClient } = require("@supabase/supabase-js");
-require("dotenv").config();
+const supabase = require("./supabBaseConnect");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
-
-const setupCheckerInput = async (channelId) => {
+async function setupCheckerInput(channelId) {
   try {
-    const { data, error } = await supabase
-      .from("discord")
-      .select("*")
-      .eq("input", channelId)
-      .single();
+    const { data: server } = await supabase.select("server", "*", {
+      where: { input_channel: channelId },
+    });
 
-    if (error && error.code !== "PGRST116") {
-      throw new Error(`Error fetching channel: ${error.message}`);
-    }
-
-    return data || null; // Retourne les données ou null si aucune correspondance
-  } catch (err) {
-    console.error("Error:", err.message);
-    throw err; // Rejeter l'erreur pour un traitement plus haut dans la chaîne
+    return {
+      input: server && server.length > 0,
+      data: server?.[0] || null,
+    };
+  } catch (error) {
+    console.error(
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check input channel:",
+      error
+    );
+    return { input: false, data: null };
   }
-};
+}
 
 module.exports = setupCheckerInput;

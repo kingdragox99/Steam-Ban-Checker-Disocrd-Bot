@@ -1,13 +1,42 @@
-// Check if the input string is include in command array
+// Cache pour les résultats de vérification
+const checkCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 function textChecker(string, data) {
-  let checker = false;
-  Object.values(data).forEach(function (data) {
-    if (string.includes(data) == true) {
-      checker = true;
-    }
+  // Créer une clé unique pour le cache
+  const cacheKey = `${string}_${JSON.stringify(data)}`;
+
+  // Vérifier le cache
+  const cached = checkCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.result;
+  }
+
+  // Optimisation : convertir en Set pour une recherche plus rapide
+  const validCommands = new Set(Object.values(data));
+
+  // Optimisation : vérifier d'abord les cas simples
+  const result =
+    validCommands.has(string) ||
+    Array.from(validCommands).some((cmd) => string.includes(cmd));
+
+  // Mettre en cache
+  checkCache.set(cacheKey, {
+    result,
+    timestamp: Date.now(),
   });
-  // Return true or false
-  return checker;
+
+  return result;
 }
+
+// Nettoyer le cache périodiquement
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of checkCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL) {
+      checkCache.delete(key);
+    }
+  }
+}, CACHE_TTL);
 
 module.exports = textChecker;
