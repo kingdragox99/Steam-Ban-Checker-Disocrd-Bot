@@ -1,13 +1,13 @@
 {
   "name": "steam-ban-tracker",
   "main": "index.js",
-  "version": "BETA 2.0",
+  "version": "BETA 3.0",
   "author": "Dragolelele",
   "license": "MIT",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "commands": "node deploy-commands.js"
+    "crawler": "node crawler.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
@@ -23,6 +23,7 @@
     "discord-api-types": "^0.37.67",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
+    "node-schedule": "^2.1.1",
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0"
   },

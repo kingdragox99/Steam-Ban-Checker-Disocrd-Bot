@@ -1,16 +1,26 @@
-const supabase = require("./supabBaseConnect");
+const { supabase } = require("./supabBaseConnect");
 
-async function languageChecker(guildId) {
+async function languageChecker(serverId) {
   try {
-    const { data: server } = await supabase.select("server", "*", {
-      where: { guild_id: guildId },
-    });
+    const { data, error } = await supabase
+      .from("discord")
+      .select("lang")
+      .eq("id_server", serverId)
+      .single();
 
-    return server?.[0] || null;
+    if (error) {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check server language:",
+        error.message
+      );
+      return null;
+    }
+
+    return data;
   } catch (error) {
     console.error(
-      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check server language:",
-      error
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Error in languageChecker:",
+      error.message
     );
     return null;
   }

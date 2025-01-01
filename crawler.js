@@ -1,14 +1,40 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const { scrapSteamProfile } = require("./modules/steamScraper");
-const supabase = require("./modules/supabBaseConnect");
+const { supabase } = require("./modules/supabBaseConnect");
 const Bottleneck = require("bottleneck");
 require("dotenv").config();
+
+// Gestion des arguments de ligne de commande
+const DEBUG_MODE = process.argv.includes("--debug");
+
+// Fonction de log conditionnelle
+function debugLog(...args) {
+  if (DEBUG_MODE) {
+    console.log("\x1b[43m\x1b[1mDEBUG\x1b[0m:", ...args);
+  }
+}
 
 // Cache pour les profils déjà traités
 const processedProfiles = new Set();
 // Cache pour les erreurs 403
 const rateLimitCache = new Map();
+
+// Statistiques
+const stats = {
+  totalProfiles: 0,
+  processedProfiles: 0,
+  bannedProfiles: 0,
+  queueSize: 0,
+  startTime: Date.now(),
+  lastUpdateTime: Date.now(),
+  rateLimit403: 0,
+  errors: 0,
+  currentBatch: 0,
+  debugMode: DEBUG_MODE,
+  dailyProcessed: 0,
+  lastDayReset: Date.now(),
+};
 
 // Configuration optimisée de Bottleneck
 const limiter = new Bottleneck({
@@ -19,6 +45,94 @@ const limiter = new Bottleneck({
   reservoirRefreshInterval: 60 * 1000,
 });
 
+// Constantes
+const DAILY_LIMIT = 40000;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+// Fonction pour vérifier et réinitialiser le compteur quotidien
+function checkDailyLimit() {
+  const now = Date.now();
+
+  // Réinitialiser le compteur si on est le lendemain
+  if (now - stats.lastDayReset >= DAY_IN_MS) {
+    stats.dailyProcessed = 0;
+    stats.lastDayReset = now;
+    debugLog("Daily counter reset");
+  }
+
+  // Vérifier si on a atteint la limite
+  if (stats.dailyProcessed >= DAILY_LIMIT) {
+    debugLog("Daily limit reached, waiting for reset");
+    return false;
+  }
+
+  return true;
+}
+
+// Fonction pour mettre à jour l'interface console
+function updateConsole() {
+  const now = Date.now();
+  const runTime = Math.floor((now - stats.startTime) / 1000);
+  const profilesPerSecond = stats.processedProfiles / runTime;
+  const remainingProfiles = stats.totalProfiles - stats.processedProfiles;
+  const estimatedTimeRemaining = Math.floor(
+    remainingProfiles / profilesPerSecond
+  );
+  const timeToReset = DAY_IN_MS - (now - stats.lastDayReset);
+  const remainingDaily = DAILY_LIMIT - stats.dailyProcessed;
+
+  // Effacer la console
+  console.clear();
+
+  // Afficher le header
+  console.log(
+    "\x1b[45m\x1b[1m=== STEAM BAN TRACKER - CRAWLER STATUS ===\x1b[0m"
+  );
+
+  // Afficher les statistiques sur une seule ligne
+  console.log(
+    `\x1b[36mQueue:\x1b[0m ${stats.queueSize} | ` +
+      `\x1b[36mProcessed:\x1b[0m ${stats.processedProfiles}/${stats.totalProfiles} | ` +
+      `\x1b[36mBanned:\x1b[0m ${stats.bannedProfiles} | ` +
+      `\x1b[36mBatch:\x1b[0m ${stats.currentBatch}`
+  );
+
+  // Afficher les limites quotidiennes sur une ligne
+  console.log(
+    `\x1b[36mDaily:\x1b[0m ${stats.dailyProcessed}/${DAILY_LIMIT} | ` +
+      `\x1b[36mRemaining:\x1b[0m ${remainingDaily} | ` +
+      `\x1b[36mReset in:\x1b[0m ${formatTime(Math.floor(timeToReset / 1000))}`
+  );
+
+  // Afficher les performances sur une ligne
+  console.log(
+    `\x1b[36mSpeed:\x1b[0m ${profilesPerSecond.toFixed(2)}/s | ` +
+      `\x1b[36mRuntime:\x1b[0m ${formatTime(runTime)} | ` +
+      `\x1b[36mETA:\x1b[0m ${formatTime(estimatedTimeRemaining)}`
+  );
+
+  // Afficher les erreurs sur une ligne
+  console.log(
+    `\x1b[36m403s:\x1b[0m ${stats.rateLimit403} | ` +
+      `\x1b[36mErrors:\x1b[0m ${stats.errors} | ` +
+      `\x1b[36mDebug:\x1b[0m ${DEBUG_MODE ? "ON" : "OFF"}`
+  );
+
+  stats.lastUpdateTime = now;
+}
+
+// Fonction pour formater le temps en heures:minutes:secondes
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds)) return "∞";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hours}h ${minutes}m ${secs}s`;
+}
+
+// Mettre à jour la console toutes les secondes
+setInterval(updateConsole, 1000);
+
 // Fonction de retry optimisée
 const retryWithBackoff = async (fn, retries = 2, baseDelay = 3000) => {
   for (let i = 0; i < retries; i++) {
@@ -26,12 +140,8 @@ const retryWithBackoff = async (fn, retries = 2, baseDelay = 3000) => {
       return await fn();
     } catch (error) {
       if (error.response?.status === 403) {
+        stats.rateLimit403++;
         const delay = baseDelay * Math.pow(2, i);
-        console.log(
-          `\x1b[43m\x1b[1mRETRY\x1b[0m: Waiting ${
-            delay / 1000
-          }s before next attempt...`
-        );
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
@@ -45,7 +155,6 @@ const retryWithBackoff = async (fn, retries = 2, baseDelay = 3000) => {
 async function makeRequest(url, options = {}) {
   const lastError = rateLimitCache.get(url);
   if (lastError && Date.now() - lastError < 180000) {
-    console.log(`\x1b[43m\x1b[1mSKIP\x1b[0m: URL in cooldown: ${url}`);
     return null;
   }
 
@@ -70,6 +179,7 @@ async function makeRequest(url, options = {}) {
     if (error.response?.status === 403) {
       rateLimitCache.set(url, Date.now());
     }
+    stats.errors++;
     throw error;
   }
 }
@@ -78,6 +188,7 @@ async function makeRequest(url, options = {}) {
 async function fetchSteamFriends(profileUrl) {
   try {
     const friendsUrl = `${profileUrl}friends/`;
+    debugLog(`Fetching friends from ${friendsUrl}`);
     const response = await makeRequest(friendsUrl);
     if (!response) return [];
 
@@ -88,15 +199,15 @@ async function fetchSteamFriends(profileUrl) {
       const contactUrl = $(element).attr("href");
       if (contactUrl && !processedProfiles.has(contactUrl)) {
         contacts.add(contactUrl);
+        stats.totalProfiles++;
+        debugLog(`Found new contact: ${contactUrl}`);
       }
     });
 
     return Array.from(contacts);
   } catch (error) {
-    console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to fetch friends:`,
-      error.message
-    );
+    stats.errors++;
+    debugLog(`Error fetching friends:`, error.message);
     return [];
   }
 }
@@ -104,20 +215,30 @@ async function fetchSteamFriends(profileUrl) {
 // Fonction pour obtenir le premier profil avec le statut 'pending'
 async function getFirstPendingProfile() {
   try {
-    const { data: pendingProfile } = await supabase.select("profil", "*", {
-      where: { status: "pending" },
-      limit: 1,
-    });
+    const { data: pendingProfile, error } = await supabase
+      .from("profil")
+      .select("*")
+      .eq("status", "pending")
+      .limit(1)
+      .single();
 
-    if (!pendingProfile || pendingProfile.length === 0) {
-      console.log(`\x1b[43m\x1b[1mINFO\x1b[0m: No pending profiles found.`);
+    if (error && error.code !== "PGRST116") {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to get pending profile:",
+        error
+      );
       return null;
     }
 
-    return pendingProfile[0].url;
+    if (!pendingProfile) {
+      console.log("\x1b[43m\x1b[1mINFO\x1b[0m: No pending profiles found.");
+      return null;
+    }
+
+    return pendingProfile.url;
   } catch (error) {
     console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to get pending profile:`,
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to get pending profile:",
       error
     );
     return null;
@@ -127,14 +248,20 @@ async function getFirstPendingProfile() {
 // Fonction pour marquer un profil comme "in progress"
 async function markProfileAsInProgress(profileUrl) {
   try {
-    await supabase.update(
-      "profil",
-      { status: "in_progress" },
-      { url: profileUrl }
-    );
+    const { error } = await supabase
+      .from("profil")
+      .update({ status: "in_progress" })
+      .eq("url", profileUrl);
+
+    if (error) {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as in progress:",
+        error
+      );
+    }
   } catch (error) {
     console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as in progress:`,
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as in progress:",
       error
     );
   }
@@ -143,13 +270,26 @@ async function markProfileAsInProgress(profileUrl) {
 // Fonction pour marquer un profil comme terminé
 async function markProfileAsDone(profileUrl) {
   try {
-    await supabase.update("profil", { status: "done" }, { url: profileUrl });
+    const { error } = await supabase
+      .from("profil")
+      .update({ status: "done" })
+      .eq("url", profileUrl);
+
+    if (error) {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as done:",
+        error
+      );
+      return;
+    }
+
     console.log(
-      `\x1b[45m\x1b[1mCOMPLETE\x1b[0m: ${profileUrl} marked as completed`
+      "\x1b[45m\x1b[1mCOMPLETE\x1b[0m: Profile marked as completed:",
+      profileUrl
     );
   } catch (error) {
     console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as done:`,
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to mark profile as done:",
       error
     );
   }
@@ -157,66 +297,117 @@ async function markProfileAsDone(profileUrl) {
 
 // Optimisation de l'ajout de contact
 async function addContact(contactUrl) {
+  // Vérifier la limite quotidienne
+  if (!checkDailyLimit()) {
+    debugLog(`Daily limit reached, skipping ${contactUrl}`);
+    return;
+  }
+
   if (processedProfiles.has(contactUrl)) return;
   processedProfiles.add(contactUrl);
 
   try {
+    debugLog(`Processing contact: ${contactUrl}`);
     // Vérifier si le profil existe déjà
-    const { data: existingProfile } = await supabase.select("profil", "*", {
-      where: { url: contactUrl },
-    });
+    const { data: existingProfile, error: checkError } = await supabase
+      .from("profil")
+      .select("*")
+      .eq("url", contactUrl)
+      .single();
 
-    if (existingProfile && existingProfile.length > 0) {
+    if (checkError && checkError.code !== "PGRST116") {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check profile:",
+        checkError
+      );
+      return;
+    }
+
+    if (existingProfile) {
+      stats.processedProfiles++;
+      debugLog(`Profile already exists: ${contactUrl}`);
       return;
     }
 
     // Récupérer les informations du profil
     const profileData = await scrapSteamProfile(contactUrl);
-    if (!profileData) return;
+    if (!profileData) {
+      debugLog(`Failed to get profile data for: ${contactUrl}`);
+      return;
+    }
+
+    debugLog(`Adding to database: ${contactUrl}`, profileData);
 
     // Insérer le nouveau profil
-    await supabase.insert("profil", {
-      url: contactUrl,
-      steam_name: profileData.name,
-      ban: profileData.banStatus,
-      ban_type: profileData.banType,
-      ban_date: profileData.banDate,
-      last_checked: profileData.lastChecked,
-      status: "pending",
-    });
+    const { error: insertError } = await supabase.from("profil").insert([
+      {
+        url: contactUrl,
+        steam_name: profileData.name,
+        ban: profileData.banStatus,
+        ban_type: profileData.banType,
+        ban_date: profileData.banDate,
+        last_checked: new Date().toISOString(),
+        status: "pending",
+      },
+    ]);
 
-    console.log(
-      `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Added profile ${contactUrl}\n` +
-        `Name: ${profileData.name}\n` +
-        `Ban Status: ${profileData.banStatus}\n` +
-        `Ban Type: ${profileData.banType || "None"}\n` +
-        `Ban Date: ${profileData.banDate || "N/A"}`
-    );
+    if (insertError) {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to insert profile:",
+        insertError
+      );
+      stats.errors++;
+      return;
+    }
+
+    stats.processedProfiles++;
+    stats.dailyProcessed++;
+    if (profileData.banStatus) {
+      stats.bannedProfiles++;
+      console.log(
+        `\x1b[42m\x1b[1mBANNED\x1b[0m: Found banned profile ${contactUrl}\n` +
+          `Name: ${profileData.name}\n` +
+          `Ban Type: ${profileData.banType || "unknown"}\n` +
+          `Ban Date: ${profileData.banDate || "N/A"}`
+      );
+    } else {
+      debugLog(`Successfully added profile: ${contactUrl}`);
+    }
   } catch (error) {
-    console.error(`\x1b[41m\x1b[1mERROR\x1b[0m: Failed to add contact:`, error);
+    stats.errors++;
+    console.error(
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to process contact:",
+      error
+    );
   }
 }
 
 // Optimisation du traitement des profils
 async function crawlProfile(profileUrl) {
   try {
+    debugLog(`Starting to crawl profile: ${profileUrl}`);
     await markProfileAsInProgress(profileUrl);
     const contacts = await fetchSteamFriends(profileUrl);
+    stats.queueSize = contacts.length;
+    debugLog(`Found ${contacts.length} contacts to process`);
 
     // Traitement par lots de 5 contacts
     const batchSize = 5;
     for (let i = 0; i < contacts.length; i += batchSize) {
+      stats.currentBatch = Math.floor(i / batchSize) + 1;
       const batch = contacts.slice(i, i + batchSize);
+      debugLog(
+        `Processing batch ${stats.currentBatch} (${batch.length} contacts)`
+      );
       await Promise.all(batch.map((contactUrl) => addContact(contactUrl)));
     }
 
     await markProfileAsDone(profileUrl);
+    debugLog(`Profile completed: ${profileUrl}`);
     await crawlFirstPendingProfile();
   } catch (error) {
-    console.error(
-      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to crawl profile:`,
-      error
-    );
+    stats.errors++;
+    debugLog(`Error crawling profile:`, error.message);
   }
 }
 
@@ -225,13 +416,14 @@ async function crawlFirstPendingProfile(startUrl = null) {
   const profileUrl = startUrl || (await getFirstPendingProfile());
 
   if (!profileUrl) {
-    console.log(`\x1b[43m\x1b[1mINFO\x1b[0m: No profiles to crawl`);
+    console.log(`\x1b[42m\x1b[1mSUCCESS\x1b[0m: Crawling completed!`);
     return;
   }
 
-  console.log(`\x1b[42m\x1b[1mSTART\x1b[0m: Starting to crawl ${profileUrl}`);
   await crawlProfile(profileUrl);
 }
 
 // Lancer le crawler
+console.log("\x1b[45m\x1b[1m=== STEAM BAN TRACKER - CRAWLER STATUS ===\x1b[0m");
+console.log(`Debug mode: ${DEBUG_MODE ? "ON" : "OFF"}`);
 crawlFirstPendingProfile();

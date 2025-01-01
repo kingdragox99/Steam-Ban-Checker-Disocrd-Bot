@@ -20,6 +20,13 @@ function cleanHtml(text) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+// Fonction de log conditionnelle
+function debugLog(...args) {
+  if (process.argv.includes("--debug")) {
+    console.log("\x1b[43m\x1b[1mDEBUG\x1b[0m:", ...args);
+  }
+}
+
 // Fonction pour extraire la date de ban du texte
 function extractBanDate(banText) {
   if (!banText) return null;
@@ -47,18 +54,34 @@ function detectBanType($) {
   console.log("\x1b[43m\x1b[1mDEBUG\x1b[0m: Ban texts found:", banTexts);
 
   for (const text of banTexts) {
-    // Détection des bans multiples
-    if (text.includes("Multiple VAC bans")) return "Multiple VAC";
-    if (text.includes("Multiple game bans")) return "Multiple Game";
+    const lowerText = text.toLowerCase();
 
-    // Détection des bans simples
-    if (text.includes("VAC ban") || text.includes("VAC banned")) return "VAC";
-    if (text.includes("game ban") || text.includes("game ban on record"))
-      return "Game";
-    if (text.includes("Trade ban") || text.includes("trade banned"))
-      return "Trade";
-    if (text.includes("Community ban") || text.includes("community banned"))
-      return "Community";
+    // Détection des bans VAC
+    if (
+      lowerText.includes("vac ban") ||
+      lowerText.includes("multiple vac bans")
+    ) {
+      return "vac ban";
+    }
+
+    // Détection des bans de jeu
+    if (
+      lowerText.includes("game ban") ||
+      lowerText.includes("multiple game bans")
+    ) {
+      return "game ban";
+    }
+
+    // Autres types de bans
+    if (lowerText.includes("trade ban") || lowerText.includes("trade banned")) {
+      return "trade ban";
+    }
+    if (
+      lowerText.includes("community ban") ||
+      lowerText.includes("community banned")
+    ) {
+      return "community ban";
+    }
   }
 
   // Si on a trouvé un ban mais pas son type spécifique
@@ -69,7 +92,7 @@ function detectBanType($) {
         text.toLowerCase().includes("banned")
     )
   ) {
-    return "Unknown";
+    return "unknown";
   }
 
   return null;
@@ -87,13 +110,13 @@ async function scrapSteamProfile(url) {
       profileCache.delete(url);
     }
 
-    console.log(`\x1b[43m\x1b[1mDEBUG\x1b[0m: Fetching profile ${url}`);
+    debugLog(`Fetching profile ${url}`);
     const response = await axiosInstance.get(url);
     const $ = cheerio.load(response.data);
 
     // Récupérer toutes les informations en une fois
     const name = cleanHtml($(".actual_persona_name").text());
-    console.log(`\x1b[43m\x1b[1mDEBUG\x1b[0m: Found name: ${name}`);
+    debugLog(`Found name: ${name}`);
 
     // Récupérer le texte de ban en excluant le lien Info
     const banStatusElement = $(".profile_ban_status");
@@ -117,8 +140,8 @@ async function scrapSteamProfile(url) {
         .text()
     );
 
-    console.log(`\x1b[43m\x1b[1mDEBUG\x1b[0m: Ban text:`, banText);
-    console.log(`\x1b[43m\x1b[1mDEBUG\x1b[0m: Ban date text:`, banDateText);
+    debugLog(`Ban text:`, banText);
+    debugLog(`Ban date text:`, banDateText);
 
     // Déterminer le statut et le type de ban
     const banStatus =
@@ -130,30 +153,32 @@ async function scrapSteamProfile(url) {
     if (banStatus) {
       const lowerBanText = banText.toLowerCase();
 
-      // Détection des bans multiples d'abord
-      if (lowerBanText.includes("multiple vac bans")) {
-        banType = "Multiple VAC";
-      } else if (lowerBanText.includes("multiple game bans")) {
-        banType = "Multiple Game";
-      }
-      // Puis les bans simples
-      else if (lowerBanText.match(/\d+\s*vac ban/)) {
-        banType = "VAC";
-      } else if (lowerBanText.match(/\d+\s*game ban/)) {
-        banType = "Game";
+      // Détection des bans VAC et Game
+      if (
+        lowerBanText.includes("multiple vac bans") ||
+        lowerBanText.match(/\d+\s*vac ban/)
+      ) {
+        banType = "vac ban";
+      } else if (
+        lowerBanText.includes("multiple game bans") ||
+        lowerBanText.match(/\d+\s*game ban/)
+      ) {
+        banType = "game ban";
       } else if (lowerBanText.includes("trade ban")) {
-        banType = "Trade";
+        banType = "trade ban";
       } else if (lowerBanText.includes("community ban")) {
-        banType = "Community";
+        banType = "community ban";
+      } else {
+        banType = "unknown";
       }
     }
 
-    console.log(`\x1b[43m\x1b[1mDEBUG\x1b[0m: Ban status:`, banStatus);
-    console.log(`\x1b[43m\x1b[1mDEBUG\x1b[0m: Detected ban type:`, banType);
+    debugLog(`Ban status:`, banStatus);
+    debugLog(`Detected ban type:`, banType);
 
     // Extraire la date de ban
     const banDate = extractBanDate(banDateText);
-    console.log(`\x1b[43m\x1b[1mDEBUG\x1b[0m: Extracted ban date:`, banDate);
+    debugLog(`Extracted ban date:`, banDate);
 
     // Préparer les données
     const profileData = {
@@ -170,19 +195,18 @@ async function scrapSteamProfile(url) {
       timestamp: Date.now(),
     });
 
-    console.log(
-      `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Retrieved profile data for ${name}:\n` +
-        `Ban Status: ${banStatus}\n` +
-        `Ban Type: ${profileData.banType || "None"}\n` +
-        `Ban Date: ${banDate || "N/A"}`
-    );
+    if (process.argv.includes("--debug")) {
+      console.log(
+        `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Retrieved profile data for ${name}:\n` +
+          `Ban Status: ${banStatus}\n` +
+          `Ban Type: ${profileData.banType || "None"}\n` +
+          `Ban Date: ${banDate || "N/A"}`
+      );
+    }
 
     return profileData;
   } catch (error) {
-    console.error(
-      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to scrap Steam profile:",
-      error.message
-    );
+    debugLog("Failed to scrap Steam profile:", error.message);
     return null;
   }
 }
@@ -214,8 +238,8 @@ setInterval(() => {
 }, CACHE_TTL);
 
 module.exports = {
-  scrapSteamProfile, // Nouvelle fonction principale
-  scrapName, // Pour la compatibilité
-  scrapBan, // Pour la compatibilité
-  scrapBanType, // Pour la compatibilité
+  scrapSteamProfile,
+  scrapName,
+  scrapBan,
+  scrapBanType,
 };

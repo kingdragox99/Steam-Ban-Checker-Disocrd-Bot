@@ -549,6 +549,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cron-parser@npm:^4.2.0":
+  version: 4.9.0
+  resolution: "cron-parser@npm:4.9.0"
+  dependencies:
+    luxon: "npm:^3.2.1"
+  checksum: 10c0/348622bdcd1a15695b61fc33af8a60133e5913a85cf99f6344367579e7002896514ba3b0a9d6bb569b02667d6b06836722bf2295fcd101b3de378f71d37bed0b
+  languageName: node
+  linkType: hard
+
 "cron@npm:^3.1.6":
   version: 3.3.2
   resolution: "cron@npm:3.3.2"
@@ -1127,6 +1136,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"long-timeout@npm:0.1.1":
+  version: 0.1.1
+  resolution: "long-timeout@npm:0.1.1"
+  checksum: 10c0/a62240cc8f449d7a00081e817ae543fb1ded4d9fc05492e9fa8d6868cb33b2c9d5d71176a6f8be4473df7ba4b208460b3073b0e05069c3ec286122f3e4b5747f
+  languageName: node
+  linkType: hard
+
 "lru-cache@npm:^10.0.1, lru-cache@npm:^10.2.0":
   version: 10.4.3
   resolution: "lru-cache@npm:10.4.3"
@@ -1134,7 +1150,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"luxon@npm:~3.5.0":
+"luxon@npm:^3.2.1, luxon@npm:~3.5.0":
   version: 3.5.0
   resolution: "luxon@npm:3.5.0"
   checksum: 10c0/335789bba95077db831ef99894edadeb23023b3eb2137a1b56acd0d290082b691cf793143d69e30bc069ec95f0b49f36419f48e951c68014f19ffe12045e3494
@@ -1325,6 +1341,17 @@ __metadata:
   bin:
     node-gyp: bin/node-gyp.js
   checksum: 10c0/a3b885bbee2d271f1def32ba2e30ffcf4562a3db33af06b8b365e053153e2dd2051b9945783c3c8e852d26a0f20f65b251c7e83361623383a99635c0280ee573
+  languageName: node
+  linkType: hard
+
+"node-schedule@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "node-schedule@npm:2.1.1"
+  dependencies:
+    cron-parser: "npm:^4.2.0"
+    long-timeout: "npm:0.1.1"
+    sorted-array-functions: "npm:^1.3.0"
+  checksum: 10c0/6ec51b34b9e676740ac25298e4ced5ee46053379f0d3aad533e51d7e083bc24ced045df1772a95bf9d9cfdb81299340bbf551549a7c5eb6e4d2dc6468c85c70e
   languageName: node
   linkType: hard
 
@@ -1733,6 +1760,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"sorted-array-functions@npm:^1.3.0":
+  version: 1.3.0
+  resolution: "sorted-array-functions@npm:1.3.0"
+  checksum: 10c0/d94e3401a2bc1689dc913f56939621c892a3ff1288e984e85689a6c6e46b0ec16f65edc8b47d46b0f09d06857f67ca245553b462da597619102b9fad270476d9
+  languageName: node
+  linkType: hard
+
 "split2@npm:^4.0.0":
   version: 4.2.0
   resolution: "split2@npm:4.2.0"
@@ -1770,6 +1804,7 @@ __metadata:
     discord-api-types: "npm:^0.37.67"
     discord.js: "npm:^14.14.1"
     dotenv: "npm:^16.4.5"
+    node-schedule: "npm:^2.1.1"
     nodemon: "npm:^3.1.7"
     pino: "npm:^9.5.0"
     pino-pretty: "npm:^11.3.0"

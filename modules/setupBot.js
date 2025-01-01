@@ -1,43 +1,186 @@
-const supabase = require("./supabBaseConnect");
+const { supabase } = require("./supabBaseConnect");
 
-async function setupBot(guildId, channelId, type) {
+async function setupCheckerInput(channelId) {
   try {
-    // Vérifier si le serveur existe déjà
-    const { data: existingServer } = await supabase.select("server", "*", {
-      where: { guild_id: guildId },
-    });
+    const { data, error } = await supabase
+      .from("discord")
+      .select("*")
+      .eq("input", channelId);
 
-    if (existingServer && existingServer.length > 0) {
-      // Mettre à jour le serveur existant
-      const updateData =
-        type === "input"
-          ? { input_channel: channelId }
-          : { output_channel: channelId };
-
-      await supabase.update("server", updateData, { guild_id: guildId });
-      console.log(
-        `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Updated ${type} channel for server ${guildId}`
+    if (error) {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check input channel:",
+        error
       );
-    } else {
-      // Créer un nouveau serveur
-      const serverData = {
-        guild_id: guildId,
-        ...(type === "input"
-          ? { input_channel: channelId }
-          : { output_channel: channelId }),
-      };
-
-      await supabase.insert("server", serverData);
-      console.log(
-        `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Created new server with ${type} channel ${channelId}`
-      );
+      return null;
     }
 
-    return true;
+    return data && data.length > 0 ? { input: true } : null;
   } catch (error) {
-    console.error("\x1b[41m\x1b[1mERROR\x1b[0m: Setup failed:", error);
-    throw error;
+    console.error(
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Error in setupCheckerInput:",
+      error
+    );
+    return null;
   }
 }
 
-module.exports = setupBot;
+async function setupInput(guildId, channelId) {
+  try {
+    console.log(
+      `\x1b[44m\x1b[1mINFO\x1b[0m: Setting up input channel for server ${guildId}`
+    );
+
+    // Vérifier si le serveur existe déjà
+    const { data: existingServer, error: checkError } = await supabase
+      .from("discord")
+      .select("*")
+      .eq("id_server", guildId)
+      .single();
+
+    if (checkError) {
+      if (checkError.code === "PGRST116") {
+        console.log(
+          `\x1b[44m\x1b[1mINFO\x1b[0m: Server ${guildId} not found, creating new entry`
+        );
+      } else {
+        console.error(
+          "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check server:",
+          checkError
+        );
+        return false;
+      }
+    }
+
+    if (existingServer) {
+      console.log(
+        `\x1b[44m\x1b[1mINFO\x1b[0m: Updating existing server ${guildId}`
+      );
+      // Mettre à jour le canal d'entrée
+      const { error: updateError } = await supabase
+        .from("discord")
+        .update({ input: channelId })
+        .eq("id_server", guildId);
+
+      if (updateError) {
+        console.error(
+          "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to update input channel:",
+          updateError
+        );
+        return false;
+      }
+    } else {
+      console.log(
+        `\x1b[44m\x1b[1mINFO\x1b[0m: Creating new server entry for ${guildId}`
+      );
+      // Créer une nouvelle entrée
+      const { error: insertError } = await supabase.from("discord").insert([
+        {
+          id_server: guildId,
+          input: channelId,
+          output: null,
+          lang: "en_EN",
+        },
+      ]);
+
+      if (insertError) {
+        console.error(
+          "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to insert server config:",
+          insertError
+        );
+        return false;
+      }
+    }
+
+    console.log(
+      `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Input channel set for server ${guildId}`
+    );
+    return true;
+  } catch (error) {
+    console.error("\x1b[41m\x1b[1mERROR\x1b[0m: Error in setupInput:", error);
+    return false;
+  }
+}
+
+async function setupOutput(guildId, channelId) {
+  try {
+    console.log(
+      `\x1b[44m\x1b[1mINFO\x1b[0m: Setting up output channel for server ${guildId}`
+    );
+
+    // Vérifier si le serveur existe déjà
+    const { data: existingServer, error: checkError } = await supabase
+      .from("discord")
+      .select("*")
+      .eq("id_server", guildId)
+      .single();
+
+    if (checkError) {
+      if (checkError.code === "PGRST116") {
+        console.log(
+          `\x1b[44m\x1b[1mINFO\x1b[0m: Server ${guildId} not found, creating new entry`
+        );
+      } else {
+        console.error(
+          "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check server:",
+          checkError
+        );
+        return false;
+      }
+    }
+
+    if (existingServer) {
+      console.log(
+        `\x1b[44m\x1b[1mINFO\x1b[0m: Updating existing server ${guildId}`
+      );
+      // Mettre à jour le canal de sortie
+      const { error: updateError } = await supabase
+        .from("discord")
+        .update({ output: channelId })
+        .eq("id_server", guildId);
+
+      if (updateError) {
+        console.error(
+          "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to update output channel:",
+          updateError
+        );
+        return false;
+      }
+    } else {
+      console.log(
+        `\x1b[44m\x1b[1mINFO\x1b[0m: Creating new server entry for ${guildId}`
+      );
+      // Créer une nouvelle entrée
+      const { error: insertError } = await supabase.from("discord").insert([
+        {
+          id_server: guildId,
+          input: null,
+          output: channelId,
+          lang: "en_EN",
+        },
+      ]);
+
+      if (insertError) {
+        console.error(
+          "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to insert server config:",
+          insertError
+        );
+        return false;
+      }
+    }
+
+    console.log(
+      `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Output channel set for server ${guildId}`
+    );
+    return true;
+  } catch (error) {
+    console.error("\x1b[41m\x1b[1mERROR\x1b[0m: Error in setupOutput:", error);
+    return false;
+  }
+}
+
+module.exports = {
+  setupCheckerInput,
+  setupInput,
+  setupOutput,
+};

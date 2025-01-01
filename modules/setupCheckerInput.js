@@ -1,21 +1,28 @@
-const supabase = require("./supabBaseConnect");
+const { supabase } = require("./supabBaseConnect");
 
 async function setupCheckerInput(channelId) {
   try {
-    const { data: server } = await supabase.select("server", "*", {
-      where: { input_channel: channelId },
-    });
+    const { data, error } = await supabase
+      .from("discord")
+      .select("*")
+      .eq("input", channelId)
+      .single();
 
-    return {
-      input: server && server.length > 0,
-      data: server?.[0] || null,
-    };
+    if (error) {
+      console.error(
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check input channel:",
+        error.message
+      );
+      return null;
+    }
+
+    return data;
   } catch (error) {
     console.error(
-      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check input channel:",
-      error
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Error in setupCheckerInput:",
+      error.message
     );
-    return { input: false, data: null };
+    return null;
   }
 }
 
