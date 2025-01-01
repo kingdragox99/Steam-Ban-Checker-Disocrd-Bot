@@ -4,55 +4,60 @@ Steam Ban Tracker consists of 3 things: a crawler that seeks to find as many Ste
 
 WIP project please report bug and crash
 
-You can found data visualisation here : [SBT Web UI](https://steam-ban-tracker-web-ui.vercel.app/)
+You can find data visualization here: [SBT Web UI](https://steam-ban-tracker-web-ui.vercel.app/)
 
 [SBT Web UI Github](https://github.com/kingdragox99/STEAM-BAN-TRACKER-WEB-UI)
 
 ## Installation
 
-Please read everything! !
+Please read everything carefully!
 
-You need to make an account / logging and get an API key on site bellow
+You need to create an account and get an API key from the following websites:
 
 [Discord API](https://discord.com/developers/applications)
-
 [SUPABASE](https://www.supabase.com/)
+[Steam API](https://steamcommunity.com/dev/apikey)
 
-[Steam API Key](https://steamcommunity.com/dev/apikey)
-
-After putting that in console
+Run the following commands in terminal:
 
 ```bash
-  sudo apt update
-  sudo apt upgrade
-  sudo apt install curl
-  sudo apt install screen
-  sudo apt install git
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  sudo apt install nodejs
-  sudo apt install npm
-  sudo npm install --global yarn
-  screen -S ban-watch
-  git clone https://github.com/kingdragox99/STEAM-BAN-TRACKER.git
-  cd Steam-Ban-Checker-Discord-Bot
-  cat .env
-  nano .env <---- /!\ and add .env step with your api key /!\
-  yarn
-  node index.js
+# System update
+sudo apt update
+sudo apt upgrade
+
+# Dependencies installation
+sudo apt install curl git
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install nodejs
+sudo apt install npm
+sudo npm install --global yarn
+sudo npm install pm2 -g
+
+# Project installation
+git clone https://github.com/kingdragox99/STEAM-BAN-TRACKER.git
+cd STEAM-BAN-TRACKER
+cp .env.example .env
+nano .env  # Configure your API keys here
+yarn install
+
+# Starting with PM2
+pm2 start index.js --name "steam-ban-tracker"
+pm2 save
+pm2 startup  # To auto-start on reboot
 ```
 
-Create a .env in the file "Steam-Ban-Checker-Discord-Bot" with
+Create a .env file in the "Steam-Ban-Checker-Discord-Bot" folder with:
 
 ```bash
 SUPABASE_URL = "SUPA BASE API URL"
 SUPABASE_KEY = "SUPA BASE API KEY"
 CLIENT_TOKEN = "DISCORD BOT API KEY"
 STEAM_API = "STEAM API KEY"
-CRAWLER_SEED = "https://steamcommunity.com/id/El_Papite/" <- steam profile url
+CRAWLER_SEED = "https://steamcommunity.com/id/El_Papite/" # Steam profile URL
 LOG_LEVEL = "debug"
 ```
 
-Structure de la db supabase
+Supabase database structure
 
 ```sql
 CREATE TABLE profil (
@@ -63,6 +68,7 @@ CREATE TABLE profil (
     ban BOOLEAN NOT NULL DEFAULT FALSE,
     ban_type TEXT
     ban_date TIMESTAMP
+    last_checked TIMESTAMP
 );
 
 CREATE TABLE discord (
@@ -76,13 +82,13 @@ CREATE TABLE discord (
 
 Go on discord and type in channels
 
-Example :
+Example:
 
 - Suspected cheater
 - Confirmed cheater
 
 ```bash
-  !setup input // In your input channel where you  put the url of suspected cheaters
-  !setup output // If a cheater was detected, he will be put here
-  !setup lang (fr/en/es) // Change lang FR EN ES
+  /setup input // In your input channel where you put the url of suspected cheaters
+  /setup output // If a cheater was detected, he will be put here
+  /setup lang (fr/en/es) // Change lang FR EN ES
 ```
