@@ -4,10 +4,10 @@ const Bottleneck = require("bottleneck");
 
 // Configuration du limiteur de requêtes
 const limiter = new Bottleneck({
-  maxConcurrent: 100,
+  maxConcurrent: 200,
   minTime: 10,
-  reservoir: 1000,
-  reservoirRefreshAmount: 1000,
+  reservoir: 2000,
+  reservoirRefreshAmount: 2000,
   reservoirRefreshInterval: 10 * 1000,
 });
 

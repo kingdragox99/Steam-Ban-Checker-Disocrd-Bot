@@ -4,10 +4,10 @@ const Bottleneck = require("bottleneck");
 
 // Configuration du limiteur de requêtes ultra-optimisée
 const limiter = new Bottleneck({
-  maxConcurrent: 40, // 40 requêtes simultanées
-  minTime: 25, // 1000ms/40 = 25ms entre chaque requête
-  reservoir: 400, // Buffer plus large
-  reservoirRefreshAmount: 400,
+  maxConcurrent: 80, // 80 requêtes simultanées
+  minTime: 25, // 1000ms/80 = 25ms entre chaque requête
+  reservoir: 800, // Buffer plus large
+  reservoirRefreshAmount: 800,
   reservoirRefreshInterval: 10 * 1000, // Rafraîchissement toutes les 10 secondes
 });
 

@@ -6,10 +6,10 @@ const Bottleneck = require("bottleneck");
 
 // Configuration du limiteur de requêtes optimisé
 const limiter = new Bottleneck({
-  maxConcurrent: 100,
+  maxConcurrent: 200,
   minTime: 10,
-  reservoir: 1000,
-  reservoirRefreshAmount: 1000,
+  reservoir: 2000,
+  reservoirRefreshAmount: 2000,
   reservoirRefreshInterval: 10 * 1000,
 });
 
@@ -60,7 +60,7 @@ function updateDisplay() {
     "\n\x1b[33m┌──" +
       "─".repeat(30) +
       " DAILY CHECK STATUS " +
-      "─".repeat(31) +
+      "─".repeat(44) +
       "┐\x1b[0m"
   );
 
@@ -92,7 +92,14 @@ function updateDisplay() {
   process.stdout.write("\x1b[?25h"); // Affiche le curseur
 }
 
-async function checkForBan() {
+async function checkForBan(client) {
+  if (!client) {
+    console.error(
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Discord client is not provided"
+    );
+    return;
+  }
+
   try {
     console.log("\x1b[43m\x1b[1mINFO\x1b[0m: Starting ban check");
 
@@ -103,11 +110,13 @@ async function checkForBan() {
     stats.errors = 0;
     stats.lastUpdate = null;
 
-    // Récupérer tous les profils à vérifier
-    const { data: profiles, error } = await supabase.from("profil").select("*");
-    if (error) throw error;
+    // Récupérer le nombre total de profils
+    const { count, error: countError } = await supabase
+      .from("profil")
+      .select("*", { count: "exact", head: true });
 
-    stats.total = profiles.length;
+    if (countError) throw countError;
+    stats.total = count;
 
     // Récupérer tous les serveurs pour les notifications
     const { data: servers } = await supabase.from("discord").select("*");
@@ -119,68 +128,131 @@ async function checkForBan() {
     // Mettre à jour l'affichage toutes les secondes
     const displayInterval = setInterval(updateDisplay, 1000);
 
-    // Traiter les profils par lots
-    const batchSize = 100;
-    for (let i = 0; i < profiles.length; i += batchSize) {
-      const batch = profiles.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(async (profile) => {
-          try {
-            const profileData = await limiter.schedule(() =>
-              scrapSteamProfile(profile.url)
-            );
-            if (!profileData) return;
+    // Pagination des profils
+    let lastId = 0;
+    const fetchBatchSize = 1000;
 
-            // Si le statut de ban a changé
-            if (profileData.banStatus !== profile.ban) {
-              stats.newBans++;
-              stats.lastUpdate = `${profile.url} → ${
-                profileData.banType || "unknown"
-              }`;
+    while (true) {
+      // Récupérer un lot de profils
+      const { data: profiles, error } = await supabase
+        .from("profil")
+        .select("*")
+        .gt("id", lastId)
+        .order("id", { ascending: true })
+        .limit(fetchBatchSize);
 
-              // Mettre à jour le profil dans la base de données
-              await supabase
-                .from("profil")
-                .update({
-                  ban: profileData.banStatus,
-                  ban_type: profileData.banType,
-                  ban_date: profileData.banDate,
-                  steam_name: profileData.name,
-                  last_checked: new Date().toISOString(),
-                })
-                .eq("url", profile.url);
+      if (error) throw error;
+      if (!profiles || profiles.length === 0) break;
 
-              // Envoyer des notifications à tous les serveurs configurés
-              for (const server of servers) {
-                if (!server.output) continue;
+      // Mettre à jour le dernier ID pour la prochaine itération
+      lastId = profiles[profiles.length - 1].id;
 
-                const langData = await languageChecker(server.id_server);
-                const lang = languageSeter(langData?.lang || "en_EN");
+      // Traiter les profils par lots
+      const processingBatchSize = 200;
+      for (let i = 0; i < profiles.length; i += processingBatchSize) {
+        const batch = profiles.slice(i, i + processingBatchSize);
+        await Promise.all(
+          batch.map(async (profile) => {
+            try {
+              const profileData = await limiter.schedule(() =>
+                scrapSteamProfile(profile.url)
+              );
+              if (!profileData) return;
 
-                const channel = await client.channels.fetch(server.output);
-                if (!channel) continue;
+              // Si le statut de ban a changé
+              if (profileData.banStatus !== profile.ban) {
+                stats.newBans++;
+                stats.lastUpdate = `${profile.url} → ${profileData.banType}`;
 
-                await channel.send(
-                  `${lang.response_banned}\n` +
-                    `${profile.url}\n` +
-                    `${lang.response_name} ${profileData.name}\n` +
-                    `${lang.response_type} ${
-                      profileData.banType || "unknown"
-                    }\n` +
-                    `${lang.response_date} ${profileData.banDate || "unknown"}`
+                console.log(
+                  `\x1b[45m\x1b[1mBAN DETECTED\x1b[0m: ${profileData.name} (${profile.url}) - Type: ${profileData.banType}`
                 );
-              }
-            }
 
-            stats.processed++;
-          } catch (error) {
-            stats.errors++;
-            console.error(
-              `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check profile ${profile.url}:`,
-              error.message
-            );
-          }
-        })
+                // Mettre à jour le profil dans la base de données
+                await supabase
+                  .from("profil")
+                  .update({
+                    ban: profileData.banStatus,
+                    ban_type: profileData.banType || "VAC",
+                    ban_date: profileData.banDate || new Date().toISOString(),
+                    steam_name: profileData.name,
+                    last_checked: new Date().toISOString(),
+                  })
+                  .eq("url", profile.url);
+
+                // Envoyer des notifications à tous les serveurs configurés
+                for (const server of servers) {
+                  if (!server.output) continue;
+
+                  const langData = await languageChecker(server.id_server);
+                  const lang = languageSeter(langData?.lang || "en_EN");
+
+                  const channel = await client.channels.fetch(server.output);
+                  if (!channel) {
+                    console.log(
+                      `\x1b[43m\x1b[1mWARN\x1b[0m: Could not find output channel for server ${server.id_server}`
+                    );
+                    continue;
+                  }
+
+                  console.log(
+                    `\x1b[44m\x1b[1mNOTIFY\x1b[0m: Sending ban notification to server ${
+                      server.id_server
+                    } (${lang?.lang || "en_EN"})`
+                  );
+
+                  await channel.send({
+                    embeds: [
+                      {
+                        color: 0xff0000,
+                        title: lang.response_ban,
+                        description: `${lang.response_watch} ${profileData.name}`,
+                        fields: [
+                          {
+                            name: "URL",
+                            value: profile.url,
+                            inline: true,
+                          },
+                          {
+                            name: lang.response_type,
+                            value: profileData.banType || "VAC",
+                            inline: true,
+                          },
+                          {
+                            name: lang.response_date,
+                            value:
+                              profileData.banDate || new Date().toISOString(),
+                            inline: true,
+                          },
+                        ],
+                        timestamp: new Date(),
+                        footer: {
+                          text: "Steam Ban Tracker",
+                        },
+                      },
+                    ],
+                  });
+
+                  console.log(
+                    `\x1b[42m\x1b[1mSUCCESS\x1b[0m: Ban notification sent to server ${server.id_server}`
+                  );
+                }
+              }
+
+              stats.processed++;
+            } catch (error) {
+              stats.errors++;
+              console.error(
+                `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check profile ${profile.url}:`,
+                error.message
+              );
+            }
+          })
+        );
+      }
+
+      console.log(
+        `\x1b[44m\x1b[1mINFO\x1b[0m: Processed batch of ${profiles.length} profiles (Last ID: ${lastId})`
       );
     }
 
