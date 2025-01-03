@@ -57,7 +57,7 @@ CRAWLER_SEED = "https://steamcommunity.com/id/El_Papite/" # Steam profile URL
 DEBUG = false or true
 ```
 
-Supabase database structure
+Supabase database structure:
 
 ```sql
 CREATE TABLE profil (
@@ -92,3 +92,63 @@ Example:
   /setup output // If a cheater was detected, he will be put here
   /setup lang (fr/en/es) // Change lang FR EN ES
 ```
+
+## Supported Languages
+
+The bot is available in the following languages:
+
+- 🇫🇷 French (fr_FR)
+- 🇬🇪 French (Belgium) (fr_BE)
+- 🇬🇧 English (en_EN)
+- 🇪🇸 Spanish (es_ES)
+- 🇩🇪 German (de_DE)
+- 🇦🇹 German (Austria) (de_AT)
+- 🇵🇱 Polish (pl_PL)
+- 🇩🇰 Danish (da_DK)
+- 🇹🇷 Turkish (tr_TR)
+- 🇳🇱 Dutch (nl_NL)
+- 🇧🇪 Dutch (Belgium) (nl_BE)
+- 🇷🇺 Russian (ru_RU)
+- 🇨🇳 Chinese (zh_CN)
+- 🇯🇵 Japanese (ja_JP)
+- 🇰🇷 Korean (ko_KR)
+- 🇹🇭 Thai (th_TH)
+- 🇸🇪 Swedish (sv_SE)
+- 🇫🇮 Finnish (fi_FI)
+- 🇵🇹 Portuguese (pt_PT)
+- 🇧🇷 Portuguese (Brazil) (pt_BR)
+- 🇸🇦 Arabic (Saudi Arabia) (ar_SA)
+- 🇲🇦 Arabic (Morocco) (ar_MA)
+- 🇦🇪 Arabic (UAE) (ar_AE)
+- 🇮🇱 Hebrew (he_IL)
+
+## Features
+
+- Automatic detection of VAC, Game, and Trade bans
+- Real-time Discord notifications
+- Multilingual support
+- Unlimited Steam profile monitoring
+- Simple and intuitive interface
+- Discord slash commands
+- Automatic daily updates
+
+## Configuration
+
+Create a `.env` file at the root of the project with the following variables:
+
+```env
+CLIENT_TOKEN=your_discord_token
+CLIENT_ID=your_client_id
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+```
+
+## Commands
+
+- `/setlang` - Change bot language
+- `/setup` - Configure input/output channels
+- `/stats` - Display statistics
+
+## Contributing
+
+Contributions are welcome! Feel free to open an issue or submit a pull request.
