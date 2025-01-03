@@ -235,7 +235,7 @@ async function startApp() {
     if (error) throw error;
     console.log("Connected to Supabase");
 
-    schedule.scheduleJob("06 16 * * *", async () => {
+    schedule.scheduleJob("0 1 * * *", async () => {
       console.log("Starting daily ban check");
       await checkForBan(client);
     });

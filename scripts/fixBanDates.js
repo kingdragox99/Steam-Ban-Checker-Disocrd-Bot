@@ -54,8 +54,7 @@ async function fixBanDates() {
     const { count, error: countError } = await supabase
       .from("profil")
       .select("*", { count: "exact", head: true })
-      .eq("ban", true)
-      .is("ban_date", null);
+      .eq("ban", true);
 
     if (countError) throw countError;
     stats.total = count;
@@ -75,7 +74,6 @@ async function fixBanDates() {
         .from("profil")
         .select("*")
         .eq("ban", true)
-        .is("ban_date", null)
         .gt("id", lastId)
         .order("id", { ascending: true })
         .limit(fetchBatchSize);
