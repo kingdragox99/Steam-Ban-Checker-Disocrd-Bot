@@ -4,11 +4,11 @@ const Bottleneck = require("bottleneck");
 
 // Configuration du limiteur de requêtes ultra-optimisée
 const limiter = new Bottleneck({
-  maxConcurrent: 80, // 80 requêtes simultanées
-  minTime: 25, // 1000ms/80 = 25ms entre chaque requête
-  reservoir: 800, // Buffer plus large
-  reservoirRefreshAmount: 800,
-  reservoirRefreshInterval: 10 * 1000, // Rafraîchissement toutes les 10 secondes
+  maxConcurrent: 200,
+  minTime: 10,
+  reservoir: 2000,
+  reservoirRefreshAmount: 2000,
+  reservoirRefreshInterval: 10 * 1000,
 });
 
 // Statistiques
@@ -88,7 +88,7 @@ async function recheckProfile(profile) {
     if (data.name !== profile.steam_name) changes.steam_name = data.name;
     if (data.banStatus !== profile.ban) changes.ban = data.banStatus;
     if (data.banType !== profile.ban_type) changes.ban_type = data.banType;
-    if (data.banDate !== profile.ban_date) changes.ban_date = data.banDate;
+    if (data.banDate) changes.ban_date = data.banDate;
     changes.last_checked = new Date().toISOString();
 
     if (Object.keys(changes).length > 0) {

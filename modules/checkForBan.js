@@ -148,7 +148,7 @@ async function checkForBan(client) {
       lastId = profiles[profiles.length - 1].id;
 
       // Traiter les profils par lots
-      const processingBatchSize = 200;
+      const processingBatchSize = 1000;
       for (let i = 0; i < profiles.length; i += processingBatchSize) {
         const batch = profiles.slice(i, i + processingBatchSize);
         await Promise.all(
@@ -169,15 +169,21 @@ async function checkForBan(client) {
                 );
 
                 // Mettre à jour le profil dans la base de données
+                const updateData = {
+                  ban: profileData.banStatus,
+                  ban_type: profileData.banType,
+                  steam_name: profileData.name,
+                  last_checked: new Date().toISOString(),
+                };
+
+                // N'ajouter la date de ban que si elle est disponible
+                if (profileData.banDate) {
+                  updateData.ban_date = profileData.banDate;
+                }
+
                 await supabase
                   .from("profil")
-                  .update({
-                    ban: profileData.banStatus,
-                    ban_type: profileData.banType || "VAC",
-                    ban_date: profileData.banDate || new Date().toISOString(),
-                    steam_name: profileData.name,
-                    last_checked: new Date().toISOString(),
-                  })
+                  .update(updateData)
                   .eq("url", profile.url);
 
                 // Envoyer des notifications à tous les serveurs configurés
@@ -215,13 +221,12 @@ async function checkForBan(client) {
                           },
                           {
                             name: lang.response_type,
-                            value: profileData.banType || "VAC",
+                            value: profileData.banType || "Unknown",
                             inline: true,
                           },
                           {
                             name: lang.response_date,
-                            value:
-                              profileData.banDate || new Date().toISOString(),
+                            value: profileData.banDate || "Unknown",
                             inline: true,
                           },
                         ],
