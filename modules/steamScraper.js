@@ -57,7 +57,7 @@ async function scrapSteamProfile(url) {
 
     // Vérifier explicitement la présence d'un ban
     const banStatusElement = $(".profile_ban");
-    const banText = cleanHtml(banStatusElement.text());
+    const banText = cleanHtml(banStatusElement.text().toLowerCase());
 
     // Récupérer le texte de date de ban séparément
     const banDateText = cleanHtml(
@@ -65,35 +65,30 @@ async function scrapSteamProfile(url) {
     );
 
     // Détection plus précise des bans
-    const banStatus =
-      banText.length > 0 &&
-      (banText.toLowerCase().includes("vac ban") ||
-        banText.toLowerCase().includes("game ban") ||
-        banText.toLowerCase().includes("multiple vac bans") ||
-        banText.toLowerCase().includes("multiple game bans") ||
-        banText.toLowerCase().includes("1 vac ban") ||
-        banText.toLowerCase().includes("1 game ban") ||
-        banText.toLowerCase().includes("trade ban") ||
-        banText.toLowerCase().includes("trade banned"));
-
+    let banStatus = false;
     let banType = null;
+
+    // Vérifier les différents types de bans
+    if (
+      banText.includes("1 VAC ban") ||
+      banText.includes("multiple vac bans")
+    ) {
+      banStatus = true;
+      banType = "vac ban";
+    } else if (
+      banText.includes("1 game ban") ||
+      banText.includes("multiple game bans")
+    ) {
+      banStatus = true;
+      banType = "game ban";
+    } else if (banText.includes("trade banned")) {
+      banStatus = true;
+      banType = "trade ban";
+    }
+
+    // Extraire la date de ban si un ban est détecté
     let banDate = null;
-
     if (banStatus) {
-      // Déterminer le type de ban
-      const lowerBanText = banText.toLowerCase();
-      if (lowerBanText.includes("vac ban")) {
-        banType = "vac ban";
-      } else if (lowerBanText.includes("game ban")) {
-        banType = "game ban";
-      } else if (
-        lowerBanText.includes("trade ban") ||
-        lowerBanText.includes("trade banned")
-      ) {
-        banType = "trade ban";
-      }
-
-      // Extraire la date de ban du texte séparé
       banDate = extractBanDate(banDateText);
     }
 

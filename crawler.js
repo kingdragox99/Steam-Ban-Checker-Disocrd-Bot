@@ -15,6 +15,34 @@ function debugLog(...args) {
   }
 }
 
+// Fonction pour convertir les URLs Steam en format Steam64
+async function convertToSteam64Url(url) {
+  try {
+    if (url.includes("/profiles/")) {
+      // Déjà au format Steam64
+      return url;
+    }
+
+    // Pour les URLs au format /id/
+    const response = await axios.get(url);
+    const $ = cheerio.load(response.data);
+
+    // Rechercher le data-steamid dans la page
+    const steamId = $("[data-steamid]").attr("data-steamid");
+    if (steamId) {
+      return `https://steamcommunity.com/profiles/${steamId}`;
+    }
+
+    return url; // Retourner l'URL originale si la conversion échoue
+  } catch (error) {
+    console.error(
+      `\x1b[41m\x1b[1mERROR\x1b[0m: Failed to convert URL ${url}:`,
+      error.message
+    );
+    return url;
+  }
+}
+
 // Cache pour les profils déjà traités
 const processedProfiles = new Set();
 // Cache pour les erreurs 403
@@ -187,7 +215,8 @@ async function makeRequest(url, options = {}) {
 // Fonction optimisée pour récupérer les amis
 async function fetchSteamFriends(profileUrl) {
   try {
-    const friendsUrl = `${profileUrl}friends/`;
+    const steam64Url = await convertToSteam64Url(profileUrl);
+    const friendsUrl = `${steam64Url}friends/`;
     debugLog(`Fetching friends from ${friendsUrl}`);
     const response = await makeRequest(friendsUrl);
     if (!response) return [];
@@ -307,12 +336,14 @@ async function addContact(contactUrl) {
   processedProfiles.add(contactUrl);
 
   try {
-    debugLog(`Processing contact: ${contactUrl}`);
+    const steam64Url = await convertToSteam64Url(contactUrl);
+    debugLog(`Processing contact: ${steam64Url}`);
+
     // Vérifier si le profil existe déjà
     const { data: existingProfile, error: checkError } = await supabase
       .from("profil")
       .select("*")
-      .eq("url", contactUrl)
+      .eq("url", steam64Url)
       .single();
 
     if (checkError && checkError.code !== "PGRST116") {
@@ -325,23 +356,23 @@ async function addContact(contactUrl) {
 
     if (existingProfile) {
       stats.processedProfiles++;
-      debugLog(`Profile already exists: ${contactUrl}`);
+      debugLog(`Profile already exists: ${steam64Url}`);
       return;
     }
 
     // Récupérer les informations du profil
-    const profileData = await scrapSteamProfile(contactUrl);
+    const profileData = await scrapSteamProfile(steam64Url);
     if (!profileData) {
-      debugLog(`Failed to get profile data for: ${contactUrl}`);
+      debugLog(`Failed to get profile data for: ${steam64Url}`);
       return;
     }
 
-    debugLog(`Adding to database: ${contactUrl}`, profileData);
+    debugLog(`Adding to database: ${steam64Url}`, profileData);
 
     // Insérer le nouveau profil
     const { error: insertError } = await supabase.from("profil").insert([
       {
-        url: contactUrl,
+        url: steam64Url,
         steam_name: profileData.name,
         ban: profileData.banStatus,
         ban_type: profileData.banType,
@@ -365,13 +396,13 @@ async function addContact(contactUrl) {
     if (profileData.banStatus) {
       stats.bannedProfiles++;
       console.log(
-        `\x1b[42m\x1b[1mBANNED\x1b[0m: Found banned profile ${contactUrl}\n` +
+        `\x1b[42m\x1b[1mBANNED\x1b[0m: Found banned profile ${steam64Url}\n` +
           `Name: ${profileData.name}\n` +
           `Ban Type: ${profileData.banType || "unknown"}\n` +
           `Ban Date: ${profileData.banDate || "N/A"}`
       );
     } else {
-      debugLog(`Successfully added profile: ${contactUrl}`);
+      debugLog(`Successfully added profile: ${steam64Url}`);
     }
   } catch (error) {
     stats.errors++;
