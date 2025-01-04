@@ -43,8 +43,10 @@ async function convertToSteam64Url(url) {
   }
 }
 
-// Cache pour les profils déjà traités
+// Cache pour les profils déjà traités avec une taille maximale
 const processedProfiles = new Set();
+const MAX_CACHE_SIZE = 100000;
+
 // Cache pour les erreurs 403
 const rateLimitCache = new Map();
 
@@ -64,12 +66,12 @@ const stats = {
   lastDayReset: Date.now(),
 };
 
-// Configuration optimisée de Bottleneck
+// Configuration optimisée de Bottleneck avec des limites plus élevées
 const limiter = new Bottleneck({
-  maxConcurrent: 200,
-  minTime: 10,
-  reservoir: 2000,
-  reservoirRefreshAmount: 2000,
+  maxConcurrent: 500, // Augmentation du nombre de requêtes simultanées
+  minTime: 5, // Réduction du temps minimum entre les requêtes
+  reservoir: 5000, // Augmentation du réservoir de requêtes
+  reservoirRefreshAmount: 5000,
   reservoirRefreshInterval: 10 * 1000,
 });
 
@@ -324,90 +326,112 @@ async function markProfileAsDone(profileUrl) {
   }
 }
 
-// Optimisation de l'ajout de contact
-async function addContact(contactUrl) {
+// Optimisation de l'ajout de contact avec traitement par lots
+async function addContacts(contactUrls) {
   // Vérifier la limite quotidienne
   if (!checkDailyLimit()) {
-    debugLog(`Daily limit reached, skipping ${contactUrl}`);
+    debugLog(`Daily limit reached, skipping batch`);
     return;
   }
 
-  if (processedProfiles.has(contactUrl)) return;
-  processedProfiles.add(contactUrl);
+  // Filtrer les URLs déjà traitées
+  const newUrls = contactUrls.filter((url) => !processedProfiles.has(url));
+  if (newUrls.length === 0) return;
+
+  // Ajouter les URLs au cache traité
+  newUrls.forEach((url) => {
+    processedProfiles.add(url);
+    // Nettoyer le cache si nécessaire
+    if (processedProfiles.size > MAX_CACHE_SIZE) {
+      const iterator = processedProfiles.values();
+      for (let i = 0; i < 1000; i++) {
+        processedProfiles.delete(iterator.next().value);
+      }
+    }
+  });
 
   try {
-    const steam64Url = await convertToSteam64Url(contactUrl);
-    debugLog(`Processing contact: ${steam64Url}`);
+    // Convertir toutes les URLs en parallèle
+    const steam64Urls = await Promise.all(
+      newUrls.map((url) => convertToSteam64Url(url))
+    );
 
-    // Vérifier si le profil existe déjà
-    const { data: existingProfile, error: checkError } = await supabase
+    // Vérifier l'existence des profils en masse
+    const { data: existingProfiles, error: checkError } = await supabase
       .from("profil")
-      .select("*")
-      .eq("url", steam64Url)
-      .single();
+      .select("url")
+      .in("url", steam64Urls);
 
-    if (checkError && checkError.code !== "PGRST116") {
+    if (checkError) {
       console.error(
-        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check profile:",
+        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to check profiles:",
         checkError
       );
       return;
     }
 
-    if (existingProfile) {
-      stats.processedProfiles++;
-      debugLog(`Profile already exists: ${steam64Url}`);
-      return;
-    }
+    // Filtrer les URLs qui n'existent pas encore
+    const existingUrls = new Set(existingProfiles?.map((p) => p.url) || []);
+    const newSteam64Urls = steam64Urls.filter((url) => !existingUrls.has(url));
 
-    // Récupérer les informations du profil
-    const profileData = await scrapSteamProfile(steam64Url);
-    if (!profileData) {
-      debugLog(`Failed to get profile data for: ${steam64Url}`);
-      return;
-    }
+    // Récupérer les données des profils en parallèle
+    const profileDataPromises = newSteam64Urls.map((url) =>
+      limiter.schedule(() => scrapSteamProfile(url))
+    );
+    const profilesData = await Promise.all(profileDataPromises);
 
-    debugLog(`Adding to database: ${steam64Url}`, profileData);
-
-    // Insérer le nouveau profil
-    const { error: insertError } = await supabase.from("profil").insert([
-      {
-        url: steam64Url,
-        steam_name: profileData.name,
-        ban: profileData.banStatus,
-        ban_type: profileData.banType,
-        ban_date: profileData.banDate,
+    // Préparer les données pour l'insertion
+    const profilesToInsert = profilesData
+      .filter((data) => data !== null)
+      .map((data, index) => ({
+        url: newSteam64Urls[index],
+        steam_name: data.name,
+        ban: data.banStatus,
+        ban_type: data.banType,
+        ban_date: data.banDate,
         last_checked: new Date().toISOString(),
         status: "pending",
-      },
-    ]);
+      }));
 
-    if (insertError) {
-      console.error(
-        "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to insert profile:",
-        insertError
-      );
-      stats.errors++;
-      return;
-    }
+    // Insérer les profils par lots de 100
+    const batchSize = 100;
+    for (let i = 0; i < profilesToInsert.length; i += batchSize) {
+      const batch = profilesToInsert.slice(i, i + batchSize);
+      const { error: insertError } = await supabase
+        .from("profil")
+        .insert(batch);
 
-    stats.processedProfiles++;
-    stats.dailyProcessed++;
-    if (profileData.banStatus) {
-      stats.bannedProfiles++;
-      console.log(
-        `\x1b[42m\x1b[1mBANNED\x1b[0m: Found banned profile ${steam64Url}\n` +
-          `Name: ${profileData.name}\n` +
-          `Ban Type: ${profileData.banType || "unknown"}\n` +
-          `Ban Date: ${profileData.banDate || "N/A"}`
-      );
-    } else {
-      debugLog(`Successfully added profile: ${steam64Url}`);
+      if (insertError) {
+        console.error(
+          "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to insert profiles:",
+          insertError
+        );
+        stats.errors++;
+        continue;
+      }
+
+      stats.processedProfiles += batch.length;
+      stats.dailyProcessed += batch.length;
+
+      // Loguer les profils bannis
+      batch.forEach((profile) => {
+        if (profile.ban) {
+          stats.bannedProfiles++;
+          console.log(
+            `\x1b[42m\x1b[1mBANNED\x1b[0m: Found banned profile ${profile.url}\n` +
+              `Name: ${profile.steam_name}\n` +
+              `Ban Type: ${profile.ban_type || "unknown"}\n` +
+              `Ban Date: ${profile.ban_date || "N/A"}`
+          );
+        } else {
+          debugLog(`Successfully added profile: ${profile.url}`);
+        }
+      });
     }
   } catch (error) {
     stats.errors++;
     console.error(
-      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to process contact:",
+      "\x1b[41m\x1b[1mERROR\x1b[0m: Failed to process contacts:",
       error
     );
   }
@@ -422,15 +446,15 @@ async function crawlProfile(profileUrl) {
     stats.queueSize = contacts.length;
     debugLog(`Found ${contacts.length} contacts to process`);
 
-    // Traitement par lots de 5 contacts
-    const batchSize = 5;
+    // Traitement par lots plus grands
+    const batchSize = 50; // Augmentation de la taille des lots
     for (let i = 0; i < contacts.length; i += batchSize) {
       stats.currentBatch = Math.floor(i / batchSize) + 1;
       const batch = contacts.slice(i, i + batchSize);
       debugLog(
         `Processing batch ${stats.currentBatch} (${batch.length} contacts)`
       );
-      await Promise.all(batch.map((contactUrl) => addContact(contactUrl)));
+      await addContacts(batch);
     }
 
     await markProfileAsDone(profileUrl);
