@@ -66,11 +66,11 @@ const stats = {
 
 // Configuration optimisée de Bottleneck
 const limiter = new Bottleneck({
-  maxConcurrent: 4,
-  minTime: 1000,
-  reservoir: 50,
-  reservoirRefreshAmount: 50,
-  reservoirRefreshInterval: 60 * 1000,
+  maxConcurrent: 200,
+  minTime: 10,
+  reservoir: 2000,
+  reservoirRefreshAmount: 2000,
+  reservoirRefreshInterval: 10 * 1000,
 });
 
 // Constantes
